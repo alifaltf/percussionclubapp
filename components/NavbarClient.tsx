@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ProfileDropdown from "@/components/ui/ProfileDropdown";
 import { logout } from "@/lib/supabase/actions";
@@ -86,6 +87,7 @@ export default function NavbarClient({
             <ProfileDropdown
               displayName={displayName}
               avatarUrl={avatarUrl}
+              isAdmin={isAdmin}
               menuItems={menuItems}
             />
           ) : (
@@ -159,9 +161,17 @@ export default function NavbarClient({
                       getInitials(displayName)
                     )}
                   </span>
-                  <span className="truncate text-sm font-medium text-[#111111]">
-                    {displayName}
-                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[#111111]">
+                      {displayName}
+                    </p>
+                    <Badge
+                      variant={isAdmin ? "gold" : "default"}
+                      className="mt-1"
+                    >
+                      {isAdmin ? "Admin" : "Member"}
+                    </Badge>
+                  </div>
                 </div>
 
                 {menuItems.map((item) => (

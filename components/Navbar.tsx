@@ -1,23 +1,16 @@
 import NavbarClient from "@/components/NavbarClient";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/current-user";
 
 export default async function Navbar() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentUser();
 
   if (!user) {
     return <NavbarClient isAuthenticated={false} />;
   }
 
-  const isAdmin = user.app_metadata?.role === "admin";
-  const displayName =
-    (user.user_metadata?.full_name as string | undefined) ??
-    (user.user_metadata?.name as string | undefined) ??
-    user.email ??
-    "Member";
-  const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
+  const isAdmin = profile?.role === "admin";
+  const displayName = profile?.full_name || user.email || "Member";
+  const avatarUrl = profile?.avatar_url ?? undefined;
 
   return (
     <NavbarClient

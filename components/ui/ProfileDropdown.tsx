@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import Badge from "@/components/ui/Badge";
 import { logout } from "@/lib/supabase/actions";
 import { getInitials } from "@/utils/get-initials";
 
@@ -14,12 +15,14 @@ interface MenuItem {
 interface ProfileDropdownProps {
   displayName: string;
   avatarUrl?: string;
+  isAdmin: boolean;
   menuItems: MenuItem[];
 }
 
 export default function ProfileDropdown({
   displayName,
   avatarUrl,
+  isAdmin,
   menuItems,
 }: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -89,23 +92,49 @@ export default function ProfileDropdown({
 
       <div
         role="menu"
-        className={`absolute right-0 top-full mt-2 w-56 origin-top-right rounded-xl border border-[#E8E8E8] bg-white p-2 shadow-sm transition-all duration-200 ease-out ${
+        className={`absolute right-0 top-full mt-2 w-64 origin-top-right rounded-xl border border-[#E8E8E8] bg-white p-2 shadow-sm transition-all duration-200 ease-out ${
           isOpen
             ? "translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-1 opacity-0"
         }`}
       >
-        {menuItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            role="menuitem"
-            onClick={() => setIsOpen(false)}
-            className="block rounded-lg px-3 py-2 text-sm text-[#111111] transition-colors duration-300 hover:bg-[#F8F8F6] hover:text-[#C8A928]"
-          >
-            {item.label}
-          </Link>
-        ))}
+        <div className="flex items-center gap-3 px-1 pb-3">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E8E8E8] bg-[#F8F8F6] text-xs font-semibold text-[#111111]">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={displayName}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
+            ) : (
+              initials
+            )}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[#111111]">
+              {displayName}
+            </p>
+            <Badge variant={isAdmin ? "gold" : "default"} className="mt-1">
+              {isAdmin ? "Admin" : "Member"}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="border-t border-[#E8E8E8] pt-2">
+          {menuItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              role="menuitem"
+              onClick={() => setIsOpen(false)}
+              className="block rounded-lg px-3 py-2 text-sm text-[#111111] transition-colors duration-300 hover:bg-[#F8F8F6] hover:text-[#C8A928]"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
 
         <div className="my-2 border-t border-[#E8E8E8]" />
 
