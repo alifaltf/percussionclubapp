@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
             hostname: supabaseHostname,
             pathname: "/storage/v1/object/public/**",
           },
+          {
+            // Signed URLs for the private return-photos bucket.
+            protocol: "https",
+            hostname: supabaseHostname,
+            pathname: "/storage/v1/object/sign/**",
+          },
         ]
       : [],
   },

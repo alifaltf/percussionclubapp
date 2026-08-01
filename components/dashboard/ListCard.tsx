@@ -6,8 +6,8 @@ interface ListCardProps {
   title: string;
   icon: ReactNode;
   items: string[];
-  viewAllHref: string;
-  viewAllLabel: string;
+  viewAllHref?: string;
+  viewAllLabel?: string;
 }
 
 export default function ListCard({
@@ -38,22 +38,24 @@ export default function ListCard({
         ))}
       </ul>
 
-      <Link
-        href={viewAllHref}
-        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#C8A928] transition-colors duration-300 hover:text-[#9E8217]"
-      >
-        {viewAllLabel}
-        <svg
-          viewBox="0 0 24 24"
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          aria-hidden="true"
+      {viewAllHref && (
+        <Link
+          href={viewAllHref}
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#C8A928] transition-colors duration-300 hover:text-[#9E8217]"
         >
-          <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </Link>
+          {viewAllLabel}
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden="true"
+          >
+            <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
+      )}
     </Card>
   );
 }

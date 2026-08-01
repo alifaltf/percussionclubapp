@@ -1,0 +1,27 @@
+const SKELETON_CARDS = Array.from({ length: 6 });
+
+export default function InstrumentSkeletonGrid() {
+  return (
+    <div aria-hidden="true">
+      <div className="h-[92px] animate-pulse rounded-2xl border border-[#E8E8E8] bg-white" />
+
+      <div className="mt-6 h-4 w-32 animate-pulse rounded bg-[#E8E8E8]" />
+
+      <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {SKELETON_CARDS.map((_, index) => (
+          <div
+            key={index}
+            className="overflow-hidden rounded-2xl border border-[#E8E8E8] bg-white"
+          >
+            <div className="aspect-[4/3] w-full animate-pulse bg-[#F8F8F6]" />
+            <div className="flex flex-col gap-3 p-5">
+              <div className="h-3 w-20 animate-pulse rounded bg-[#E8E8E8]" />
+              <div className="h-5 w-3/4 animate-pulse rounded bg-[#E8E8E8]" />
+              <div className="h-3 w-24 animate-pulse rounded bg-[#E8E8E8]" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

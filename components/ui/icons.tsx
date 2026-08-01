@@ -248,3 +248,87 @@ export function PlusIcon({ className = "h-4 w-4" }: IconProps) {
     </svg>
   );
 }
+
+export function CheckCircleIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path
+        d="M8.5 12.5l2.3 2.3L15.5 9.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function AlertTriangleIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path
+        d="M12 4.5L21 19.5H3L12 4.5Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M12 10v4" strokeLinecap="round" />
+      <circle cx="12" cy="16.8" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function UsersIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="8" r="3" />
+      <path
+        d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="17" cy="9" r="2.3" />
+      <path d="M15.5 13.2c2.4.3 4 2 4 4.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function GalleryIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path
+        d="M4.5 17l5-5 3.5 3.5 2-2 4.5 4.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

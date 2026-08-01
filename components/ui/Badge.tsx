@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type BadgeVariant = "default" | "gold";
+type BadgeVariant = "default" | "gold" | "warning" | "danger";
 
 interface BadgeProps {
   children: ReactNode;
@@ -11,6 +11,8 @@ interface BadgeProps {
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
   default: "border-[#E8E8E8] text-[#666666]",
   gold: "border-[#C8A928] text-[#C8A928]",
+  warning: "border-amber-300 text-amber-700",
+  danger: "border-red-300 text-red-600",
 };
 
 export default function Badge({

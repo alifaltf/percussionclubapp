@@ -20,6 +20,7 @@ const NAV_LINKS = [
 
 const MEMBER_MENU_ITEMS = [
   { label: "Dashboard", href: "/dashboard" },
+  { label: "My Requests", href: "/my-requests" },
   { label: "My Borrowings", href: "/my-borrowings" },
   { label: "Profile", href: "/profile" },
 ];
@@ -29,6 +30,7 @@ const ADMIN_MENU_ITEMS = [
   { label: "Admin Panel", href: "/admin" },
   { label: "Members", href: "/admin/members" },
   { label: "Instruments", href: "/admin/instruments" },
+  { label: "Requests", href: "/admin/requests" },
   { label: "Profile", href: "/profile" },
 ];
 
