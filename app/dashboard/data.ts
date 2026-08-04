@@ -1,27 +1,16 @@
 /**
- * Temporary placeholder data for the Member Dashboard.
+ * Remaining placeholder data for the Member Dashboard.
  *
- * None of this is backed by a database table yet — the instruments,
- * borrowing/requests, and announcements tables don't exist. Once they do,
- * replace these constants with real Supabase queries (see the comments on
- * each export for where that query would live).
+ * Instruments and borrow requests (Module 2) are now backed by real
+ * Supabase queries — see `getInstrumentStats` and `getMyBorrowStats`,
+ * wired up directly in app/dashboard/page.tsx. Announcements and Events
+ * are separate, not-yet-built modules, so those two stay hardcoded here
+ * until their tables exist.
  */
 
-export interface SummaryStat {
-  label: string;
-  value: number;
-}
-
-// TODO: replace with counts from `instruments`, `borrowings`, and
-// `requests` tables once they exist (e.g. available instruments = count of
-// instruments where status = 'available'; my active borrowings = count of
-// borrowings for the current user where returned_at is null; etc).
-export const SUMMARY_STATS: SummaryStat[] = [
-  { label: "Available Instruments", value: 24 },
-  { label: "My Active Borrowings", value: 2 },
-  { label: "Pending Requests", value: 1 },
-  { label: "Upcoming Events", value: 3 },
-];
+// TODO: replace with the next few upcoming rows from an `events` table,
+// and use its count for the "Upcoming Events" summary card.
+export const UPCOMING_EVENTS_COUNT = 3;
 
 // TODO: replace with the most recent rows from an `announcements` table.
 export const RECENT_ANNOUNCEMENTS: string[] = [

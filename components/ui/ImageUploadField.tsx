@@ -1,29 +1,47 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
-import { CameraIcon, InstrumentIcon } from "@/components/ui/icons";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB, matches the instrument-images bucket config
+const DEFAULT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB, matches most storage bucket configs
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 interface ImageUploadFieldProps {
+  /** Field label, e.g. "Image" or "Banner Image". */
+  label?: string;
+  /** Alt text for the preview thumbnail. */
+  previewAlt?: string;
+  /** Icon shown in the placeholder state, before any image is selected/present. */
+  placeholderIcon: ReactNode;
   initialImageUrl?: string | null;
   onFileSelected: (file: File | null) => void;
   uploadProgress: number | null;
   disabled?: boolean;
   error?: string | null;
+  /** Overrides the 5MB default — gallery covers allow up to 8MB. */
+  maxSizeBytes?: number;
 }
 
+/**
+ * Shared image-upload control used by both the instrument and event admin
+ * forms — local preview, size/type validation, and an upload-progress bar.
+ * The actual upload (and its bucket) is the caller's responsibility; this
+ * component only picks and validates the file.
+ */
 export default function ImageUploadField({
+  label = "Image",
+  previewAlt = "Preview",
+  placeholderIcon,
   initialImageUrl = null,
   onFileSelected,
   uploadProgress,
   disabled = false,
   error = null,
+  maxSizeBytes = DEFAULT_MAX_FILE_SIZE,
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialImageUrl);
   const [localError, setLocalError] = useState<string | null>(null);
+  const maxSizeMb = Math.round(maxSizeBytes / (1024 * 1024));
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -35,8 +53,8 @@ export default function ImageUploadField({
       return;
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      setLocalError("Image must be 5MB or smaller.");
+    if (file.size > maxSizeBytes) {
+      setLocalError(`Image must be ${maxSizeMb}MB or smaller.`);
       event.target.value = "";
       return;
     }
@@ -51,7 +69,7 @@ export default function ImageUploadField({
   return (
     <div>
       <label className="text-xs font-medium uppercase tracking-wide text-[#666666]">
-        Image
+        {label}
       </label>
       <div className="mt-1.5 flex items-center gap-4">
         <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-[#E8E8E8] bg-[#F8F8F6]">
@@ -61,11 +79,11 @@ export default function ImageUploadField({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={previewUrl}
-              alt="Instrument preview"
+              alt={previewAlt}
               className="h-full w-full object-cover"
             />
           ) : (
-            <InstrumentIcon className="h-8 w-8 text-[#C8A928]/50" />
+            placeholderIcon
           )}
         </div>
 
@@ -76,7 +94,6 @@ export default function ImageUploadField({
             disabled={disabled}
             className="inline-flex items-center gap-2 rounded-sm border border-[#E8E8E8] px-3 py-1.5 text-sm font-medium text-[#111111] transition-colors duration-300 hover:border-[#C8A928] hover:text-[#C8A928] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <CameraIcon className="h-4 w-4" />
             {previewUrl ? "Replace Image" : "Upload Image"}
           </button>
           <input
@@ -87,7 +104,7 @@ export default function ImageUploadField({
             disabled={disabled}
             className="hidden"
           />
-          <p className="mt-1.5 text-xs text-[#666666]">JPG, PNG or WebP · Max 5MB</p>
+          <p className="mt-1.5 text-xs text-[#666666]">JPG, PNG or WebP · Max {maxSizeMb}MB</p>
 
           {uploadProgress !== null && (
             <div className="mt-2">

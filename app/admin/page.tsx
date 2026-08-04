@@ -5,6 +5,7 @@ import ListCard from "@/components/dashboard/ListCard";
 import {
   AlertTriangleIcon,
   CalendarIcon,
+  CameraIcon,
   CheckCircleIcon,
   ClockIcon,
   GalleryIcon,
@@ -16,6 +17,8 @@ import {
 import { requireAdmin } from "@/lib/supabase/require-admin";
 import { getInstrumentStats } from "@/lib/supabase/instruments";
 import { getBorrowRequestStats } from "@/lib/supabase/borrow-requests";
+import { getEventStats } from "@/lib/supabase/events";
+import { getGalleryStats } from "@/lib/supabase/gallery";
 import { RECENT_ACTIVITY, TOTAL_MEMBERS } from "@/app/admin/data";
 
 const QUICK_ACTIONS = [
@@ -58,15 +61,25 @@ export default async function AdminDashboardPage() {
   let statsError = false;
   let instrumentStats: Awaited<ReturnType<typeof getInstrumentStats>> | null = null;
   let requestStats: Awaited<ReturnType<typeof getBorrowRequestStats>> | null = null;
+  let eventStats: Awaited<ReturnType<typeof getEventStats>> | null = null;
+  let galleryStats: Awaited<ReturnType<typeof getGalleryStats>> | null = null;
 
   try {
-    [instrumentStats, requestStats] = await Promise.all([
+    [instrumentStats, requestStats, eventStats, galleryStats] = await Promise.all([
       getInstrumentStats(),
       getBorrowRequestStats(),
+      getEventStats(),
+      getGalleryStats(),
     ]);
   } catch {
     statsError = true;
   }
+
+  // getBorrowRequestStats keys its counts by *effective* status — "active"
+  // there means "out, not yet overdue", with overdue broken out
+  // separately. "Active Borrowings" on this dashboard means everything
+  // currently checked out regardless of due date, so it's the sum of both.
+  const activeBorrowings = (requestStats?.active ?? 0) + (requestStats?.overdue ?? 0);
 
   const statCards = [
     { label: "Total Members", value: TOTAL_MEMBERS, icon: <UsersIcon className="h-5 w-5" /> },
@@ -95,6 +108,56 @@ export default async function AdminDashboardPage() {
       value: instrumentStats?.damaged ?? "—",
       icon: <AlertTriangleIcon className="h-5 w-5" />,
     },
+    {
+      label: "Active Borrowings",
+      value: requestStats ? activeBorrowings : "—",
+      icon: <SwapIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Overdue Borrowings",
+      value: requestStats?.overdue ?? "—",
+      icon: <AlertTriangleIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Returns Awaiting Review",
+      value: requestStats?.return_submitted ?? "—",
+      icon: <CameraIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Upcoming Events",
+      value: eventStats?.upcoming ?? "—",
+      icon: <CalendarIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Draft Events",
+      value: eventStats?.draft ?? "—",
+      icon: <ClockIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Published Events",
+      value: eventStats?.published ?? "—",
+      icon: <CheckCircleIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Total Albums",
+      value: galleryStats?.totalAlbums ?? "—",
+      icon: <GalleryIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Published Albums",
+      value: galleryStats?.published ?? "—",
+      icon: <CheckCircleIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Draft Albums",
+      value: galleryStats?.draft ?? "—",
+      icon: <ClockIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Total Gallery Images",
+      value: galleryStats?.totalImages ?? "—",
+      icon: <CameraIcon className="h-5 w-5" />,
+    },
   ];
 
   return (
@@ -118,12 +181,12 @@ export default async function AdminDashboardPage() {
 
         {statsError && (
           <p className="mt-6 text-sm text-red-600">
-            Instrument statistics couldn&apos;t be loaded right now.
+            Some statistics couldn&apos;t be loaded right now.
           </p>
         )}
 
         {/* Statistics cards */}
-        <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3">
           {statCards.map((stat) => (
             <SummaryCard
               key={stat.label}

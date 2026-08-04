@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useActionState, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { CameraIcon, InstrumentIcon } from "@/components/ui/icons";
 import { uploadReturnPhoto } from "@/lib/supabase/storage";
@@ -23,6 +24,7 @@ interface ReturnFormProps {
 }
 
 export default function ReturnForm({ requestId, action }: ReturnFormProps) {
+  const router = useRouter();
   const [state, formAction, isSubmitting] = useActionState(action, INITIAL_STATE);
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -30,6 +32,16 @@ export default function ReturnForm({ requestId, action }: ReturnFormProps) {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // revalidatePath in the server action only invalidates the route cache —
+  // it doesn't re-render this already-mounted page. Refresh explicitly so
+  // the status badge and "canSubmitReturn"/"canReportDamage" gates above
+  // pick up the new status instead of staying stale until a manual reload.
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [state.status, router]);
 
   const busy = isUploading || isSubmitting;
 

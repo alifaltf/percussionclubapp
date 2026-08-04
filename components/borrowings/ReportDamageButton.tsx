@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { AlertTriangleIcon } from "@/components/ui/icons";
 import type { BorrowingFormState } from "@/app/my-borrowings/[id]/actions";
@@ -15,8 +16,17 @@ interface ReportDamageButtonProps {
 }
 
 export default function ReportDamageButton({ action }: ReportDamageButtonProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isSubmitting] = useActionState(action, INITIAL_STATE);
+
+  // Keep the rest of the page (damage badge, etc.) in sync after a
+  // successful report instead of leaving it stale until reload.
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [state.status, router]);
 
   if (state.status === "success") {
     return (

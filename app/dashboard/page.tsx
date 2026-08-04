@@ -14,14 +14,9 @@ import {
   SwapIcon,
 } from "@/components/ui/icons";
 import { getCurrentUser } from "@/lib/supabase/current-user";
-import { RECENT_ANNOUNCEMENTS, SUMMARY_STATS, UPCOMING_EVENTS } from "@/app/dashboard/data";
-
-const SUMMARY_ICONS = [
-  <InstrumentIcon key="instruments" className="h-5 w-5" />,
-  <SwapIcon key="borrowings" className="h-5 w-5" />,
-  <ClockIcon key="requests" className="h-5 w-5" />,
-  <CalendarIcon key="events" className="h-5 w-5" />,
-];
+import { getInstrumentStats } from "@/lib/supabase/instruments";
+import { getMyBorrowStats } from "@/lib/supabase/borrow-requests";
+import { RECENT_ANNOUNCEMENTS, UPCOMING_EVENTS, UPCOMING_EVENTS_COUNT } from "@/app/dashboard/data";
 
 export default async function DashboardPage() {
   const { user, profile } = await getCurrentUser();
@@ -38,6 +33,45 @@ export default async function DashboardPage() {
     month: "long",
     day: "numeric",
   });
+
+  // Instruments and borrow requests are real Module 2 data; Announcements
+  // and Events aren't built yet, so those two stay as placeholders (see
+  // app/dashboard/data.ts) until those modules exist.
+  let statsError = false;
+  let instrumentStats: Awaited<ReturnType<typeof getInstrumentStats>> | null = null;
+  let borrowStats: Awaited<ReturnType<typeof getMyBorrowStats>> | null = null;
+
+  try {
+    [instrumentStats, borrowStats] = await Promise.all([
+      getInstrumentStats(),
+      getMyBorrowStats(),
+    ]);
+  } catch {
+    statsError = true;
+  }
+
+  const summaryStats = [
+    {
+      label: "Available Instruments",
+      value: instrumentStats?.available ?? "—",
+      icon: <InstrumentIcon className="h-5 w-5" />,
+    },
+    {
+      label: "My Active Borrowings",
+      value: borrowStats?.activeBorrowings ?? "—",
+      icon: <SwapIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Pending Requests",
+      value: borrowStats?.pendingRequests ?? "—",
+      icon: <ClockIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Upcoming Events",
+      value: UPCOMING_EVENTS_COUNT,
+      icon: <CalendarIcon className="h-5 w-5" />,
+    },
+  ];
 
   return (
     <main className="flex flex-1 flex-col bg-[#F8F8F6] px-6 py-16 sm:py-20">
@@ -69,12 +103,18 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {statsError && (
+          <p className="mt-6 text-sm text-red-600">
+            Some of your stats couldn&apos;t be loaded right now.
+          </p>
+        )}
+
         {/* Summary cards */}
         <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {SUMMARY_STATS.map((stat, index) => (
+          {summaryStats.map((stat) => (
             <SummaryCard
               key={stat.label}
-              icon={SUMMARY_ICONS[index]}
+              icon={stat.icon}
               label={stat.label}
               value={stat.value}
             />

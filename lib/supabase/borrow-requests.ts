@@ -18,6 +18,40 @@ const REQUEST_COLUMNS_WITH_INSTRUMENT =
 const REQUEST_COLUMNS_ADMIN =
   "id, member_id, instrument_id, purpose, requested_borrow_date, requested_return_date, status, admin_note, reviewed_by, reviewed_at, actual_borrow_date, actual_return_date, return_photo_url, return_notes, condition_before, condition_after, damage_reported, damage_notes, damage_reported_at, verified_by, verified_at, created_at, updated_at, instrument:instruments(id, instrument_code, name, category, image_url), member:profiles!member_id(id, full_name, avatar_url, phone)";
 
+// ---------------------------------------------------------------------------
+// "Overdue" is a *derived display state*, never a value written to the
+// `status` column. There is no scheduled job that flips a row to overdue —
+// per the Module 2 spec, that's intentionally out of scope for now. Instead,
+// a borrowing is treated as overdue whenever it's still `active` (the member
+// has it, no return submitted yet) and `requested_return_date` has passed.
+// That check is applied once, here, to every row this module returns, so
+// badges, admin filters and dashboard counts all agree on the same effective
+// status without each caller re-deriving it.
+// ---------------------------------------------------------------------------
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPastReturnDate(requestedReturnDate: string): boolean {
+  return requestedReturnDate < todayIsoDate();
+}
+
+function withEffectiveStatus<
+  T extends { status: BorrowRequestStatus; requested_return_date: string },
+>(row: T): T {
+  if (row.status === "active" && isPastReturnDate(row.requested_return_date)) {
+    return { ...row, status: "overdue" };
+  }
+  return row;
+}
+
+function withEffectiveStatuses<
+  T extends { status: BorrowRequestStatus; requested_return_date: string },
+>(rows: T[]): T[] {
+  return rows.map(withEffectiveStatus);
+}
+
 /** All of the current member's requests, newest first — the full history. */
 export async function getMyRequests(): Promise<BorrowRequestWithInstrument[]> {
   const supabase = await createClient();
@@ -36,7 +70,7 @@ export async function getMyRequests(): Promise<BorrowRequestWithInstrument[]> {
     throw new Error("Could not load your requests.");
   }
 
-  return (data as unknown as BorrowRequestWithInstrument[] | null) ?? [];
+  return withEffectiveStatuses((data as unknown as BorrowRequestWithInstrument[] | null) ?? []);
 }
 
 /**
@@ -62,7 +96,7 @@ export async function getMyBorrowings(): Promise<BorrowRequestWithInstrument[]> 
     throw new Error("Could not load your borrowings.");
   }
 
-  return (data as unknown as BorrowRequestWithInstrument[] | null) ?? [];
+  return withEffectiveStatuses((data as unknown as BorrowRequestWithInstrument[] | null) ?? []);
 }
 
 /** A single borrowing, scoped to the current member (RLS also enforces this). */
@@ -87,7 +121,8 @@ export async function getMyBorrowingById(
     throw new Error("Could not load this borrowing.");
   }
 
-  return (data as unknown as BorrowRequestWithInstrument | null) ?? null;
+  const row = (data as unknown as BorrowRequestWithInstrument | null) ?? null;
+  return row ? withEffectiveStatus(row) : null;
 }
 
 /**
@@ -118,7 +153,8 @@ export async function getMyOpenRequestForInstrument(
     return null;
   }
 
-  return (data as unknown as BorrowRequestWithInstrument | null) ?? null;
+  const row = (data as unknown as BorrowRequestWithInstrument | null) ?? null;
+  return row ? withEffectiveStatus(row) : null;
 }
 
 export interface AdminBorrowRequestsQuery {
@@ -164,7 +200,19 @@ export async function getAdminBorrowRequests(
     );
   }
 
-  if (status !== "all") {
+  // "overdue" and "active" both live under the raw `active` status value —
+  // see the effective-status note above. Split them here so the filter
+  // dropdown actually narrows results instead of matching a status that's
+  // never stored.
+  if (status === "overdue") {
+    queryBuilder = queryBuilder
+      .eq("status", "active")
+      .lt("requested_return_date", todayIsoDate());
+  } else if (status === "active") {
+    queryBuilder = queryBuilder
+      .eq("status", "active")
+      .gte("requested_return_date", todayIsoDate());
+  } else if (status !== "all") {
     queryBuilder = queryBuilder.eq("status", status);
   }
 
@@ -188,7 +236,9 @@ export async function getAdminBorrowRequests(
   }
 
   return {
-    requests: (data as unknown as BorrowRequestAdminView[] | null) ?? [],
+    requests: withEffectiveStatuses(
+      (data as unknown as BorrowRequestAdminView[] | null) ?? [],
+    ),
     totalCount: count ?? 0,
   };
 }
@@ -209,14 +259,23 @@ export async function getAdminBorrowRequestById(
     throw new Error("Could not load this request.");
   }
 
-  return (data as unknown as BorrowRequestAdminView | null) ?? null;
+  const row = (data as unknown as BorrowRequestAdminView | null) ?? null;
+  return row ? withEffectiveStatus(row) : null;
 }
 
-/** Counts for the admin requests queue header. */
+/**
+ * Counts for the admin requests queue header and the admin dashboard.
+ * Counts are keyed by *effective* status, so `active` here means "still
+ * out, not yet overdue" and `overdue` is broken out separately — callers
+ * that want "everything currently checked out" should add the two
+ * together (see the admin dashboard's Active Borrowings card).
+ */
 export async function getBorrowRequestStats(): Promise<Record<string, number>> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.from("borrow_requests").select("status");
+  const { data, error } = await supabase
+    .from("borrow_requests")
+    .select("status, requested_return_date");
 
   if (error) {
     throw new Error("Could not load request statistics.");
@@ -225,9 +284,48 @@ export async function getBorrowRequestStats(): Promise<Record<string, number>> {
   const rows = data ?? [];
   const counts: Record<string, number> = { total: rows.length };
   for (const row of rows) {
-    counts[row.status as string] = (counts[row.status as string] ?? 0) + 1;
+    const effectiveStatus =
+      row.status === "active" && isPastReturnDate(row.requested_return_date)
+        ? "overdue"
+        : (row.status as string);
+    counts[effectiveStatus] = (counts[effectiveStatus] ?? 0) + 1;
   }
   return counts;
+}
+
+/** Counts for the member dashboard's summary cards, scoped to the signed-in member. */
+export interface MyBorrowStats {
+  activeBorrowings: number;
+  pendingRequests: number;
+}
+
+export async function getMyBorrowStats(): Promise<MyBorrowStats> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { activeBorrowings: 0, pendingRequests: 0 };
+
+  const { data, error } = await supabase
+    .from("borrow_requests")
+    .select("status")
+    .eq("member_id", user.id)
+    .in("status", ["pending", ...ACTIVE_BORROW_STATUSES]);
+
+  if (error) {
+    throw new Error("Could not load your borrowing stats.");
+  }
+
+  const rows = data ?? [];
+  return {
+    // Raw status "active" and "return_submitted" both mean the member
+    // still physically has the instrument (overdue is a derived subset of
+    // "active", so it's already included here).
+    activeBorrowings: rows.filter(
+      (row) => row.status === "active" || row.status === "return_submitted",
+    ).length,
+    pendingRequests: rows.filter((row) => row.status === "pending").length,
+  };
 }
 
 // ---------------------------------------------------------------------------

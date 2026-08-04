@@ -1,50 +1,37 @@
 import Button from "@/components/ui/Button";
 import EventCard from "@/components/ui/EventCard";
+import EmptyState from "@/components/ui/EmptyState";
 import Reveal from "@/components/ui/Reveal";
+import { CalendarIcon } from "@/components/ui/icons";
+import { getHomepageEvents } from "@/lib/supabase/events";
+import { formatEventDate, formatEventTimeRange } from "@/utils/format-event";
+import type { Event } from "@/types/event";
 
-const EVENTS = [
-  {
+function toCardProps(event: Event) {
+  return {
     image: {
-      src: "/images/events/event-1.jpg",
-      alt: "Rhythm Night 2026 performance",
+      src: event.banner_url ?? "/images/events/event-1.jpg",
+      alt: event.title,
     },
-    title: "Rhythm Night 2026",
-    date: "20 September 2026",
-    time: "8:00 PM",
-    location: "IIUM Cultural Centre",
-    description:
-      "An evening of percussion performances featuring members of the IIUM Percussion Club.",
-    href: "/events",
-  },
-  {
-    image: {
-      src: "/images/events/event-2.jpg",
-      alt: "Beginner Percussion Workshop session",
-    },
-    title: "Beginner Percussion Workshop",
-    date: "5 October 2026",
-    time: "2:00 PM",
-    location: "Student Activity Centre",
-    description:
-      "A beginner-friendly session introducing basic percussion techniques and instruments.",
-    href: "/events",
-  },
-  {
-    image: {
-      src: "/images/events/event-3.jpg",
-      alt: "Club Open Day gathering",
-    },
-    title: "Club Open Day",
-    date: "18 October 2026",
-    time: "10:00 AM",
-    location: "IIUM Main Campus",
-    description:
-      "Meet the members, try the instruments and learn more about joining the club.",
-    href: "/events",
-  },
-];
+    title: event.title,
+    date: formatEventDate(event.event_date),
+    time: formatEventTimeRange(event.start_time, event.end_time),
+    location: event.location ?? "Location TBA",
+    description: event.short_description ?? event.description ?? "",
+    href: `/events/${event.id}`,
+  };
+}
 
-export default function Events() {
+export default async function Events() {
+  let events: Event[] = [];
+  let loadError = false;
+
+  try {
+    events = await getHomepageEvents();
+  } catch {
+    loadError = true;
+  }
+
   return (
     <section id="events" className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -61,13 +48,35 @@ export default function Events() {
           </p>
         </Reveal>
 
-        <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {EVENTS.map((event, index) => (
-            <Reveal key={event.title} delayMs={index * 100}>
-              <EventCard {...event} />
-            </Reveal>
-          ))}
-        </div>
+        {!loadError && events.length > 0 && (
+          <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {events.map((event, index) => (
+              <Reveal key={event.id} delayMs={index * 100}>
+                <EventCard {...toCardProps(event)} />
+              </Reveal>
+            ))}
+          </div>
+        )}
+
+        {!loadError && events.length === 0 && (
+          <div className="mt-16">
+            <EmptyState
+              icon={<CalendarIcon className="h-5 w-5" />}
+              title="No upcoming events"
+              description="Check back soon for new performances and workshops."
+            />
+          </div>
+        )}
+
+        {loadError && (
+          <div className="mt-16">
+            <EmptyState
+              icon={<CalendarIcon className="h-5 w-5" />}
+              title="Couldn't load events"
+              description="Something went wrong while fetching upcoming events."
+            />
+          </div>
+        )}
 
         <Reveal delayMs={300} className="mt-14 flex justify-center">
           <Button href="/events" variant="outline">

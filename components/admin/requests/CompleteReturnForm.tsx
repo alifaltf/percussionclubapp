@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import {
   CONDITION_LABELS,
@@ -32,8 +33,30 @@ interface CompleteReturnFormProps {
 }
 
 export default function CompleteReturnForm({ currentCondition, action }: CompleteReturnFormProps) {
+  const router = useRouter();
   const [state, formAction, isSubmitting] = useActionState(action, INITIAL_STATE);
   const [damageReported, setDamageReported] = useState(false);
+
+  // revalidatePath alone won't re-render this already-mounted page — refresh
+  // so the status badge, condition fields and history above pick up the
+  // completed return instead of staying stale until a manual reload.
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [state.status, router]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const formData = new FormData(event.currentTarget);
+    const condition = String(formData.get("conditionAfter") ?? "");
+    const finalStatus = String(formData.get("finalInstrumentStatus") ?? "");
+    const confirmed = window.confirm(
+      `Complete this return? Condition will be recorded as "${CONDITION_LABELS[condition as InstrumentCondition] ?? condition}" and the instrument will be set to "${STATUS_LABELS[finalStatus as keyof typeof STATUS_LABELS] ?? finalStatus}".`,
+    );
+    if (!confirmed) {
+      event.preventDefault();
+    }
+  }
 
   if (state.status === "success") {
     return (
@@ -44,7 +67,11 @@ export default function CompleteReturnForm({ currentCondition, action }: Complet
   }
 
   return (
-    <form action={formAction} className="space-y-5 rounded-sm border border-[#E8E8E8] p-4">
+    <form
+      action={formAction}
+      onSubmit={handleSubmit}
+      className="space-y-5 rounded-sm border border-[#E8E8E8] p-4"
+    >
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
           <label htmlFor="conditionAfter" className={LABEL_CLASSES}>

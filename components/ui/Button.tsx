@@ -11,6 +11,9 @@ interface ButtonProps {
   onClick?: MouseEventHandler;
   type?: ButtonHTMLAttributes<HTMLButtonElement>["type"];
   disabled?: boolean;
+  /** Only used when `href` is set, e.g. "_blank" for external links. */
+  target?: string;
+  rel?: string;
 }
 
 const VARIANT_STYLES: Record<ButtonVariant, string> = {
@@ -27,12 +30,14 @@ export default function Button({
   onClick,
   type = "button",
   disabled = false,
+  target,
+  rel,
 }: ButtonProps) {
   const styles = `inline-flex items-center justify-center rounded-sm px-5 py-2 text-sm font-medium tracking-wide transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-60 ${VARIANT_STYLES[variant]} ${className}`;
 
   if (href) {
     return (
-      <Link href={href} className={styles} onClick={onClick}>
+      <Link href={href} className={styles} onClick={onClick} target={target} rel={rel}>
         {children}
       </Link>
     );

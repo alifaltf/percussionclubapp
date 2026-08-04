@@ -3,7 +3,8 @@
 import { useActionState, useState, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import FormField from "@/components/ui/FormField";
-import ImageUploadField from "@/components/admin/instruments/ImageUploadField";
+import ImageUploadField from "@/components/ui/ImageUploadField";
+import { InstrumentIcon } from "@/components/ui/icons";
 import { uploadInstrumentImage } from "@/lib/supabase/storage";
 import {
   CONDITION_LABELS,
@@ -66,6 +67,8 @@ export default function InstrumentForm({ mode, instrument, action }: InstrumentF
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <ImageUploadField
+        previewAlt="Instrument preview"
+        placeholderIcon={<InstrumentIcon className="h-8 w-8 text-[#C8A928]/50" />}
         initialImageUrl={instrument?.image_url ?? null}
         onFileSelected={setSelectedFile}
         uploadProgress={uploadProgress}

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 interface EventCardProps {
   image: { src: string; alt: string };
@@ -9,6 +10,8 @@ interface EventCardProps {
   location: string;
   description: string;
   href: string;
+  /** Optional status badge (e.g. Cancelled, Completed) shown next to the date. */
+  badge?: ReactNode;
 }
 
 export default function EventCard({
@@ -19,6 +22,7 @@ export default function EventCard({
   location,
   description,
   href,
+  badge,
 }: EventCardProps) {
   return (
     <div className="group flex h-full flex-col overflow-hidden border border-[#E8E8E8] bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
@@ -33,9 +37,12 @@ export default function EventCard({
       </div>
 
       <div className="flex flex-1 flex-col p-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-[#C8A928]">
-          {date}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[#C8A928]">
+            {date}
+          </p>
+          {badge}
+        </div>
 
         <h3 className="mt-2 font-serif text-xl font-semibold text-[#111111]">
           {title}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import type { BorrowRequestFormState } from "@/app/instruments/[id]/actions";
@@ -27,6 +27,14 @@ export default function RequestToBorrowForm({ action }: RequestToBorrowFormProps
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isSubmitting] = useActionState(action, INITIAL_STATE);
   const [borrowDate, setBorrowDate] = useState(todayIso());
+
+  // So the instrument's status/availability reflects the new request if the
+  // member navigates back to this page instead of following the link below.
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [state.status, router]);
 
   if (state.status === "success") {
     return (
