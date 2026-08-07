@@ -10,7 +10,9 @@ import {
   ClockIcon,
   GalleryIcon,
   InstrumentIcon,
+  MegaphoneIcon,
   PlusIcon,
+  StarIcon,
   SwapIcon,
   UsersIcon,
 } from "@/components/ui/icons";
@@ -19,6 +21,7 @@ import { getInstrumentStats } from "@/lib/supabase/instruments";
 import { getBorrowRequestStats } from "@/lib/supabase/borrow-requests";
 import { getEventStats } from "@/lib/supabase/events";
 import { getGalleryStats } from "@/lib/supabase/gallery";
+import { getAnnouncementStats } from "@/lib/supabase/announcements";
 import { RECENT_ACTIVITY, TOTAL_MEMBERS } from "@/app/admin/data";
 
 const QUICK_ACTIONS = [
@@ -52,6 +55,11 @@ const QUICK_ACTIONS = [
     href: "/admin/gallery",
     icon: <GalleryIcon className="h-5 w-5" />,
   },
+  {
+    label: "Manage Announcements",
+    href: "/admin/announcements",
+    icon: <MegaphoneIcon className="h-5 w-5" />,
+  },
 ];
 
 export default async function AdminDashboardPage() {
@@ -63,13 +71,15 @@ export default async function AdminDashboardPage() {
   let requestStats: Awaited<ReturnType<typeof getBorrowRequestStats>> | null = null;
   let eventStats: Awaited<ReturnType<typeof getEventStats>> | null = null;
   let galleryStats: Awaited<ReturnType<typeof getGalleryStats>> | null = null;
+  let announcementStats: Awaited<ReturnType<typeof getAnnouncementStats>> | null = null;
 
   try {
-    [instrumentStats, requestStats, eventStats, galleryStats] = await Promise.all([
+    [instrumentStats, requestStats, eventStats, galleryStats, announcementStats] = await Promise.all([
       getInstrumentStats(),
       getBorrowRequestStats(),
       getEventStats(),
       getGalleryStats(),
+      getAnnouncementStats(),
     ]);
   } catch {
     statsError = true;
@@ -157,6 +167,26 @@ export default async function AdminDashboardPage() {
       label: "Total Gallery Images",
       value: galleryStats?.totalImages ?? "—",
       icon: <CameraIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Published Announcements",
+      value: announcementStats?.published ?? "—",
+      icon: <CheckCircleIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Draft Announcements",
+      value: announcementStats?.draft ?? "—",
+      icon: <ClockIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Urgent Announcements",
+      value: announcementStats?.urgent ?? "—",
+      icon: <AlertTriangleIcon className="h-5 w-5" />,
+    },
+    {
+      label: "Pinned Announcements",
+      value: announcementStats?.pinned ?? "—",
+      icon: <StarIcon className="h-5 w-5" />,
     },
   ];
 

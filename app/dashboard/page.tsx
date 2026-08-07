@@ -5,6 +5,7 @@ import LogoutButton from "@/components/LogoutButton";
 import SummaryCard from "@/components/dashboard/SummaryCard";
 import QuickActionCard from "@/components/dashboard/QuickActionCard";
 import ListCard from "@/components/dashboard/ListCard";
+import AnnouncementsListCard from "@/components/dashboard/AnnouncementsListCard";
 import {
   CalendarIcon,
   ClockIcon,
@@ -16,7 +17,9 @@ import {
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getInstrumentStats } from "@/lib/supabase/instruments";
 import { getMyBorrowStats } from "@/lib/supabase/borrow-requests";
-import { RECENT_ANNOUNCEMENTS, UPCOMING_EVENTS, UPCOMING_EVENTS_COUNT } from "@/app/dashboard/data";
+import { getLatestDashboardAnnouncements } from "@/lib/supabase/announcements";
+import { UPCOMING_EVENTS, UPCOMING_EVENTS_COUNT } from "@/app/dashboard/data";
+import type { Announcement } from "@/types/announcement";
 
 export default async function DashboardPage() {
   const { user, profile } = await getCurrentUser();
@@ -34,17 +37,19 @@ export default async function DashboardPage() {
     day: "numeric",
   });
 
-  // Instruments and borrow requests are real Module 2 data; Announcements
-  // and Events aren't built yet, so those two stay as placeholders (see
-  // app/dashboard/data.ts) until those modules exist.
+  // Instruments, borrow requests and announcements are real data; Events'
+  // dashboard card stays a placeholder (see app/dashboard/data.ts) until
+  // that's wired up here too — out of scope for this module.
   let statsError = false;
   let instrumentStats: Awaited<ReturnType<typeof getInstrumentStats>> | null = null;
   let borrowStats: Awaited<ReturnType<typeof getMyBorrowStats>> | null = null;
+  let announcements: Announcement[] = [];
 
   try {
-    [instrumentStats, borrowStats] = await Promise.all([
+    [instrumentStats, borrowStats, announcements] = await Promise.all([
       getInstrumentStats(),
       getMyBorrowStats(),
+      getLatestDashboardAnnouncements(),
     ]);
   } catch {
     statsError = true;
@@ -152,13 +157,7 @@ export default async function DashboardPage() {
 
         {/* Announcements + Events */}
         <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ListCard
-            title="Recent Announcements"
-            icon={<MegaphoneIcon className="h-4 w-4" />}
-            items={RECENT_ANNOUNCEMENTS}
-            viewAllHref="/announcements"
-            viewAllLabel="View All Announcements"
-          />
+          <AnnouncementsListCard announcements={announcements} />
           <ListCard
             title="Upcoming Events"
             icon={<CalendarIcon className="h-4 w-4" />}
