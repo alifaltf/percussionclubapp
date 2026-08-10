@@ -4,6 +4,8 @@ import EmptyState from "@/components/ui/EmptyState";
 import Reveal from "@/components/ui/Reveal";
 import { CalendarIcon } from "@/components/ui/icons";
 import { getHomepageEvents } from "@/lib/supabase/events";
+import { getSiteSettings } from "@/lib/supabase/settings";
+import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
 import { formatEventDate, formatEventTimeRange } from "@/utils/format-event";
 import type { Event } from "@/types/event";
 
@@ -23,6 +25,11 @@ function toCardProps(event: Event) {
 }
 
 export default async function Events() {
+  const settings = await getSiteSettings().catch(() => DEFAULT_SITE_SETTINGS);
+  if (!settings.allow_public_events) {
+    return null;
+  }
+
   let events: Event[] = [];
   let loadError = false;
 

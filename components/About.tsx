@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Reveal from "@/components/ui/Reveal";
-
-const ABOUT_TEXT =
-  "IIUM Percussion Club brings students together through rhythm, creativity and performance. We create a space where members can grow musically, build confidence and form meaningful connections through percussion.";
+import { getSiteSettings } from "@/lib/supabase/settings";
+import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
 
 const STATS = [
   { value: "50+", label: "Members" },
@@ -11,7 +10,9 @@ const STATS = [
   { value: "10+", label: "Years of Rhythm" },
 ];
 
-export default function About() {
+export default async function About() {
+  const settings = await getSiteSettings().catch(() => DEFAULT_SITE_SETTINGS);
+
   return (
     <section id="about" className="bg-white py-24 sm:py-32">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 px-6 lg:grid-cols-2 lg:gap-20 lg:px-8">
@@ -25,13 +26,13 @@ export default function About() {
 
           <Reveal delayMs={100}>
             <h2 className="mt-4 font-serif text-4xl font-semibold tracking-tight text-[#111111] sm:text-5xl">
-              More Than Rhythm
+              {settings.about_heading}
             </h2>
           </Reveal>
 
           <Reveal delayMs={200}>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-[#666666] sm:text-lg">
-              {ABOUT_TEXT}
+              {settings.about_text}
             </p>
           </Reveal>
 

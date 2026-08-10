@@ -10,6 +10,10 @@ const EVENT_IMAGES_BUCKET = "event-images";
 const RETURN_PHOTOS_BUCKET = "return-photos";
 const GALLERY_IMAGES_BUCKET = "gallery-images";
 const GALLERY_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const SITE_ASSETS_BUCKET = "site-assets";
+// Matches the site-assets bucket's own file_size_limit — checked client-side
+// too so the member gets an immediate message instead of a failed request.
+const SITE_ASSET_MAX_BYTES = 2 * 1024 * 1024;
 
 // Both callers already validate MIME type before calling these functions,
 // but the storage path is still built from the *filename's* extension, and
@@ -124,6 +128,30 @@ export async function uploadEventBanner(
     file,
     onProgress,
     "Banner upload failed. Please try again.",
+  );
+}
+
+/**
+ * Uploads a club logo or favicon into `{kind}/{generated-file-name}` in the
+ * site-assets bucket. Same rationale as uploadInstrumentImage (real
+ * progress, bypasses the Server Action body limit). Restricted to
+ * JPG/PNG/WebP by the shared extension whitelist above — SVG is
+ * deliberately not accepted, matching the bucket's own allowed_mime_types.
+ */
+export async function uploadSiteAsset(
+  kind: "logo" | "favicon",
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<UploadImageResult> {
+  if (file.size > SITE_ASSET_MAX_BYTES) {
+    throw new Error(`"${file.name}" is larger than 2MB.`);
+  }
+  return uploadToPublicBucket(
+    SITE_ASSETS_BUCKET,
+    file,
+    onProgress,
+    `"${file.name}" failed to upload.`,
+    `${kind}/`,
   );
 }
 

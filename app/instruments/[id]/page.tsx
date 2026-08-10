@@ -8,6 +8,8 @@ import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getInstrumentById } from "@/lib/supabase/instruments";
 import { getMyOpenRequestForInstrument } from "@/lib/supabase/borrow-requests";
 import { submitBorrowRequest } from "@/app/instruments/[id]/actions";
+import { getSiteSettings } from "@/lib/supabase/settings";
+import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
 import { BORROW_REQUEST_STATUS_LABELS } from "@/types/borrow-request";
 import { STATUS_UNAVAILABLE_REASONS } from "@/types/instrument";
 
@@ -50,6 +52,8 @@ export default async function InstrumentDetailPage({
   const unavailableReason = STATUS_UNAVAILABLE_REASONS[instrument.status];
   const openRequest = await getMyOpenRequestForInstrument(instrument.id);
   const boundSubmit = submitBorrowRequest.bind(null, instrument.id);
+  const settings = await getSiteSettings().catch(() => DEFAULT_SITE_SETTINGS);
+  const borrowingEnabled = settings.allow_member_borrowing;
 
   return (
     <main className="flex flex-1 flex-col bg-[#F8F8F6] px-6 py-16 sm:py-20">
@@ -138,6 +142,11 @@ export default async function InstrumentDetailPage({
                   >
                     View My Requests →
                   </Link>
+                </p>
+              ) : !borrowingEnabled ? (
+                <p className="text-sm text-[#666666]">
+                  New borrow requests are currently disabled by the club admin. You can still
+                  browse instruments — check back later to submit a request.
                 </p>
               ) : isAvailable ? (
                 <RequestToBorrowForm action={boundSubmit} />

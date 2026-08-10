@@ -16,10 +16,15 @@ interface ButtonProps {
   rel?: string;
 }
 
+// Reads the --brand-primary / --brand-accent CSS custom properties (set
+// per-request in app/layout.tsx from site_settings) rather than hardcoded
+// hex values, so an admin's branding change applies everywhere this button
+// is used. Defaults to the club's white/black/gold identity if the
+// variables are ever unset — see the :root fallback in app/globals.css.
 const VARIANT_STYLES: Record<ButtonVariant, string> = {
-  primary: "bg-[#C8A928] text-white hover:bg-[#9E8217]",
+  primary: "bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-accent)]",
   outline:
-    "border border-[#C8A928] text-[#C8A928] hover:bg-[#C8A928] hover:text-white",
+    "border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white",
 };
 
 export default function Button({

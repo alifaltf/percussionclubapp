@@ -1,5 +1,7 @@
 import Button from "@/components/ui/Button";
 import Carousel from "@/components/ui/Carousel";
+import { getSiteSettings } from "@/lib/supabase/settings";
+import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
 
 const HERO_IMAGES = [
   {
@@ -22,7 +24,9 @@ const HERO_IMAGES = [
 
 const AUTOPLAY_INTERVAL_MS = 5000;
 
-export default function Hero() {
+export default async function Hero() {
+  const settings = await getSiteSettings().catch(() => DEFAULT_SITE_SETTINGS);
+
   return (
     <section
       id="home"
@@ -35,16 +39,16 @@ export default function Hero() {
       >
         <div className="flex flex-col items-center text-center">
           <h1 className="animate-fade-in-up font-serif text-4xl font-semibold leading-tight tracking-tight text-white sm:text-6xl lg:text-7xl">
-            IIUM Percussion Club
+            {settings.hero_heading}
           </h1>
 
           <p className="animate-fade-in-up mt-5 text-base tracking-wide text-white/85 [animation-delay:150ms] sm:text-xl">
-            Rhythm. Unity. Performance.
+            {settings.hero_subheading}
           </p>
 
           <div className="animate-fade-in-up mt-8 flex flex-col gap-4 [animation-delay:300ms] sm:flex-row">
-            <Button href="/contact" variant="primary">
-              Join Us
+            <Button href={settings.join_us_url} variant="primary">
+              {settings.contact_cta_text}
             </Button>
             <Button href="/about" variant="outline">
               Explore

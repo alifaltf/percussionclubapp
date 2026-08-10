@@ -4,6 +4,35 @@ import { NextResponse, type NextRequest } from "next/server";
 const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/instruments", "/admin"];
 const AUTH_ONLY_PREFIXES = ["/login"];
 
+// Paths that are never subject to maintenance mode or the public
+// gallery/events feature toggles, regardless of their state:
+//   - /login       so an admin can always sign in during maintenance
+//   - /maintenance the maintenance page itself — redirecting it would loop
+//   - /admin       so a signed-in admin can always reach the admin portal
+//                  (guests are still bounced to /login by the existing
+//                  PROTECTED_PREFIXES check below, same as always)
+//   - /auth        reserved for a future Supabase auth callback route (none
+//                  exists yet, but a callback must never be gated)
+// Static assets (_next/*, favicon, images) are already excluded entirely by
+// this middleware's `config.matcher` in middleware.ts, so they never reach
+// this function at all.
+const GATING_EXEMPT_PREFIXES = ["/login", "/maintenance", "/admin", "/auth"];
+
+interface ToggleSettings {
+  maintenance_mode: boolean;
+  allow_public_gallery: boolean;
+  allow_public_events: boolean;
+}
+
+// Fails open (site fully accessible) if the settings row can't be read —
+// e.g. the Module 8 migration hasn't been run yet. A missing/unreadable
+// settings row should never be able to lock every visitor out.
+const PERMISSIVE_DEFAULTS: ToggleSettings = {
+  maintenance_mode: false,
+  allow_public_gallery: true,
+  allow_public_events: true,
+};
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -42,6 +71,66 @@ export async function updateSession(request: NextRequest) {
   const isAuthOnlyRoute = AUTH_ONLY_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix),
   );
+  const isGatingExempt = GATING_EXEMPT_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+
+  // Memoized so at most one extra `profiles` lookup happens per request,
+  // even though both the maintenance check and the feature-toggle check
+  // below can each need to know whether the current user is an admin.
+  let isAdminChecked = false;
+  let isAdminCache = false;
+  async function currentUserIsAdmin(): Promise<boolean> {
+    if (isAdminChecked) return isAdminCache;
+    isAdminChecked = true;
+    if (!user) {
+      isAdminCache = false;
+      return false;
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    isAdminCache = profile?.role === "admin";
+    return isAdminCache;
+  }
+
+  if (!isGatingExempt) {
+    const { data: settingsRow } = await supabase
+      .from("site_settings")
+      .select("maintenance_mode, allow_public_gallery, allow_public_events")
+      .eq("id", 1)
+      .maybeSingle();
+
+    const settings: ToggleSettings = settingsRow ?? PERMISSIVE_DEFAULTS;
+
+    if (settings.maintenance_mode) {
+      const isAdmin = await currentUserIsAdmin();
+      if (!isAdmin) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/maintenance";
+        redirectUrl.search = "";
+        return NextResponse.redirect(redirectUrl);
+      }
+      // Admin during maintenance: falls through with full, unrestricted
+      // access — including the feature toggles below.
+    } else {
+      const isGalleryRoute = pathname === "/gallery" || pathname.startsWith("/gallery/");
+      const isEventsRoute = pathname === "/events" || pathname.startsWith("/events/");
+
+      const blockedByToggle =
+        (isGalleryRoute && !settings.allow_public_gallery) ||
+        (isEventsRoute && !settings.allow_public_events);
+
+      if (blockedByToggle && !(await currentUserIsAdmin())) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/";
+        redirectUrl.search = "";
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+  }
 
   if (!user && isProtectedRoute) {
     const redirectUrl = request.nextUrl.clone();

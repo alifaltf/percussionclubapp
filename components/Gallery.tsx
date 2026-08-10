@@ -4,6 +4,8 @@ import Reveal from "@/components/ui/Reveal";
 import EmptyState from "@/components/ui/EmptyState";
 import { GalleryIcon } from "@/components/ui/icons";
 import { getHomepageGalleryImages } from "@/lib/supabase/gallery";
+import { getSiteSettings } from "@/lib/supabase/settings";
+import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
 import type { GalleryImage } from "@/types/gallery";
 
 function toTileProps(image: GalleryImage) {
@@ -15,6 +17,11 @@ function toTileProps(image: GalleryImage) {
 }
 
 export default async function Gallery() {
+  const settings = await getSiteSettings().catch(() => DEFAULT_SITE_SETTINGS);
+  if (!settings.allow_public_gallery) {
+    return null;
+  }
+
   let images: GalleryImage[] = [];
   let loadError = false;
 

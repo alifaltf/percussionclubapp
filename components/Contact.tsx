@@ -3,45 +3,71 @@ import Reveal from "@/components/ui/Reveal";
 import {
   ClockIcon,
   EmailIcon,
+  FacebookIcon,
   InstagramIcon,
   LocationIcon,
   WhatsAppIcon,
+  YoutubeIcon,
 } from "@/components/ui/icons";
+import { getSiteSettings } from "@/lib/supabase/settings";
+import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
+import type { SiteSettings } from "@/types/settings";
 
-const CONTACT_DETAILS = [
-  {
-    icon: EmailIcon,
-    label: "Email",
-    value: "percussionclub@iium.edu.my",
-    href: "mailto:percussionclub@iium.edu.my",
-  },
-  {
-    icon: InstagramIcon,
-    label: "Instagram",
-    value: "@iiumpercussionclub",
-    href: "https://instagram.com/iiumpercussionclub",
-  },
-  {
-    icon: WhatsAppIcon,
-    label: "WhatsApp",
-    value: "+60 12-345 6789",
-    href: "https://wa.me/60123456789",
-  },
-  {
-    icon: LocationIcon,
-    label: "Location",
-    value: "International Islamic University Malaysia",
-    href: undefined,
-  },
-  {
-    icon: ClockIcon,
-    label: "Rehearsal",
-    value: "Every Friday, 8:00 PM",
-    href: undefined,
-  },
-] as const;
+interface ContactDetail {
+  icon: typeof EmailIcon;
+  label: string;
+  value: string;
+  href?: string;
+}
 
-export default function Contact() {
+function buildContactDetails(settings: SiteSettings): ContactDetail[] {
+  const details: ContactDetail[] = [
+    { icon: EmailIcon, label: "Email", value: settings.email, href: `mailto:${settings.email}` },
+  ];
+
+  if (settings.instagram) {
+    details.push({
+      icon: InstagramIcon,
+      label: "Instagram",
+      value: settings.instagram,
+      href: settings.instagram,
+    });
+  }
+  if (settings.whatsapp) {
+    details.push({
+      icon: WhatsAppIcon,
+      label: "WhatsApp",
+      value: settings.phone ?? settings.whatsapp,
+      href: settings.whatsapp,
+    });
+  }
+  if (settings.facebook) {
+    details.push({
+      icon: FacebookIcon,
+      label: "Facebook",
+      value: settings.facebook,
+      href: settings.facebook,
+    });
+  }
+  if (settings.youtube) {
+    details.push({
+      icon: YoutubeIcon,
+      label: "YouTube",
+      value: settings.youtube,
+      href: settings.youtube,
+    });
+  }
+
+  details.push({ icon: LocationIcon, label: "Location", value: settings.location });
+  details.push({ icon: ClockIcon, label: "Rehearsal", value: settings.rehearsal_schedule });
+
+  return details;
+}
+
+export default async function Contact() {
+  const settings = await getSiteSettings().catch(() => DEFAULT_SITE_SETTINGS);
+  const contactDetails = buildContactDetails(settings);
+
   return (
     <section id="contact" className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -67,7 +93,7 @@ export default function Contact() {
             </p>
 
             <ul className="mt-8 space-y-6">
-              {CONTACT_DETAILS.map((detail) => {
+              {contactDetails.map((detail) => {
                 const Icon = detail.icon;
                 const isExternal = detail.href?.startsWith("http");
 

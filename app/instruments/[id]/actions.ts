@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { submitBorrowRequestRpc } from "@/lib/supabase/borrow-requests";
+import { getSiteSettings } from "@/lib/supabase/settings";
 
 export interface BorrowRequestFormState {
   status: "idle" | "error" | "success";
@@ -36,6 +37,19 @@ export async function submitBorrowRequest(
   const { user } = await getCurrentUser();
   if (!user) {
     return { status: "error", message: "You must be signed in to request an instrument." };
+  }
+
+  // UI-level gating (hiding the form) is a convenience, not the real
+  // control — this re-check is what actually stops a submission while the
+  // admin has borrowing disabled, even if someone posts to this action
+  // directly. Fails closed: an unreadable settings row blocks new requests
+  // rather than silently allowing them.
+  const settings = await getSiteSettings().catch(() => null);
+  if (!(settings?.allow_member_borrowing ?? false)) {
+    return {
+      status: "error",
+      message: "New borrow requests are currently disabled by the club admin.",
+    };
   }
 
   const purpose = String(formData.get("purpose") ?? "").trim();

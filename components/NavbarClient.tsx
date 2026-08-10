@@ -9,13 +9,13 @@ import ProfileDropdown from "@/components/ui/ProfileDropdown";
 import { logout } from "@/lib/supabase/actions";
 import { getInitials } from "@/utils/get-initials";
 
-const NAV_LINKS = [
-  { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
-  { label: "Gallery", href: "/gallery" },
-  { label: "Events", href: "/events" },
-  { label: "Committee", href: "/committee" },
-  { label: "Contact", href: "/#contact" },
+const BASE_NAV_LINKS = [
+  { key: "home", label: "Home", href: "/" },
+  { key: "about", label: "About", href: "/about" },
+  { key: "gallery", label: "Gallery", href: "/gallery" },
+  { key: "events", label: "Events", href: "/events" },
+  { key: "committee", label: "Committee", href: "/committee" },
+  { key: "contact", label: "Contact", href: "/#contact" },
 ];
 
 const MEMBER_MENU_ITEMS = [
@@ -33,6 +33,8 @@ const ADMIN_MENU_ITEMS = [
   { label: "Members", href: "/admin/members" },
   { label: "Instruments", href: "/admin/instruments" },
   { label: "Requests", href: "/admin/requests" },
+  { label: "Reports", href: "/admin/reports" },
+  { label: "Settings", href: "/admin/settings" },
   { label: "Profile", href: "/profile" },
 ];
 
@@ -41,6 +43,10 @@ interface NavbarClientProps {
   isAdmin?: boolean;
   displayName?: string;
   avatarUrl?: string;
+  logoUrl?: string;
+  clubName?: string;
+  showGallery?: boolean;
+  showEvents?: boolean;
 }
 
 export default function NavbarClient({
@@ -48,9 +54,18 @@ export default function NavbarClient({
   isAdmin = false,
   displayName = "Member",
   avatarUrl,
+  logoUrl = "/images/percussion-club-logo.jpg",
+  clubName = "IIUM Percussion Club",
+  showGallery = true,
+  showEvents = true,
 }: NavbarClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuItems = isAdmin ? ADMIN_MENU_ITEMS : MEMBER_MENU_ITEMS;
+  const navLinks = BASE_NAV_LINKS.filter((link) => {
+    if (link.key === "gallery") return showGallery;
+    if (link.key === "events") return showEvents;
+    return true;
+  });
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#E8E8E8] bg-white">
@@ -61,8 +76,8 @@ export default function NavbarClient({
           onClick={() => setIsOpen(false)}
         >
           <Image
-            src="/images/percussion-club-logo.jpg"
-            alt="IIUM Percussion Club logo"
+            src={logoUrl}
+            alt={`${clubName} logo`}
             width={64}
             height={64}
             priority
@@ -72,7 +87,7 @@ export default function NavbarClient({
 
         {/* Desktop links */}
         <ul className="hidden items-center gap-10 md:flex">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <li key={link.href}>
               <Link
                 href={link.href}
@@ -136,7 +151,7 @@ export default function NavbarClient({
         }`}
       >
         <ul className="flex max-h-[calc(100vh-5rem)] flex-col gap-1 overflow-y-auto px-6 py-4">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <li key={link.href}>
               <Link
                 href={link.href}

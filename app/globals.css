@@ -3,6 +3,19 @@
 :root {
   --background: #ffffff;
   --foreground: #111111;
+
+  /*
+   * Club branding — overridden per-request in app/layout.tsx from
+   * site_settings (see lib/supabase/settings.ts). These defaults exactly
+   * match the club's current white/black/gold identity, so nothing changes
+   * visually until an admin edits Settings → Branding. Used sparingly
+   * (currently just the shared Button component) rather than rewiring the
+   * whole design system's hardcoded gold literals.
+   */
+  --brand-primary: #c8a928;
+  --brand-accent: #9e8217;
+  --brand-background: #ffffff;
+  --brand-text: #111111;
 }
 
 @theme inline {

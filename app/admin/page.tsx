@@ -4,6 +4,7 @@ import QuickActionCard from "@/components/dashboard/QuickActionCard";
 import ListCard from "@/components/dashboard/ListCard";
 import {
   AlertTriangleIcon,
+  BarChartIcon,
   CalendarIcon,
   CameraIcon,
   CheckCircleIcon,
@@ -12,6 +13,7 @@ import {
   InstrumentIcon,
   MegaphoneIcon,
   PlusIcon,
+  SettingsIcon,
   StarIcon,
   SwapIcon,
   UsersIcon,
@@ -59,6 +61,16 @@ const QUICK_ACTIONS = [
     label: "Manage Announcements",
     href: "/admin/announcements",
     icon: <MegaphoneIcon className="h-5 w-5" />,
+  },
+  {
+    label: "View Reports",
+    href: "/admin/reports",
+    icon: <BarChartIcon className="h-5 w-5" />,
+  },
+  {
+    label: "System Settings",
+    href: "/admin/settings",
+    icon: <SettingsIcon className="h-5 w-5" />,
   },
 ];
 
