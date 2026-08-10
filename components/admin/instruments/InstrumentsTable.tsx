@@ -67,6 +67,15 @@ export default function InstrumentsTable({ instruments }: InstrumentsTableProps)
     });
   }
 
+  function handleGenerateQrLabels() {
+    if (selected.size === 0) return;
+    // Selection only ever comes from the currently loaded, already-paginated
+    // page (20 max), so this never asks for more labels than that. The ids
+    // are re-validated server-side on the labels page regardless.
+    const ids = Array.from(selected).join(",");
+    router.push(`/admin/instruments/qr-labels?ids=${encodeURIComponent(ids)}`);
+  }
+
   return (
     <div>
       {selected.size > 0 && (
@@ -74,6 +83,9 @@ export default function InstrumentsTable({ instruments }: InstrumentsTableProps)
           <span className="text-sm text-[#111111]">{selected.size} selected</span>
           <div className="flex items-center gap-3">
             {bulkError && <span className="text-xs text-red-600">{bulkError}</span>}
+            <Button type="button" variant="outline" onClick={handleGenerateQrLabels}>
+              Generate QR Labels
+            </Button>
             <Button type="button" variant="outline" onClick={handleBulkArchive} disabled={isPending}>
               {isPending ? "Archiving..." : "Archive Selected"}
             </Button>
@@ -150,6 +162,12 @@ export default function InstrumentsTable({ instruments }: InstrumentsTableProps)
                         className="text-sm font-medium text-[#C8A928] transition-colors duration-300 hover:text-[#9E8217]"
                       >
                         Edit
+                      </Link>
+                      <Link
+                        href={`/admin/instruments/${instrument.id}/qr`}
+                        className="text-sm font-medium text-[#666666] transition-colors duration-300 hover:text-[#C8A928]"
+                      >
+                        QR
                       </Link>
                       <ArchiveInstrumentButton
                         instrumentId={instrument.id}

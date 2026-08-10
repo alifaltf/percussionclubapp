@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import type {
-  Instrument,
-  InstrumentArchiveState,
-  InstrumentCondition,
-  InstrumentSort,
-  InstrumentStats,
-  InstrumentStatus,
+import {
+  INSTRUMENT_CODE_PATTERN,
+  type Instrument,
+  type InstrumentArchiveState,
+  type InstrumentCondition,
+  type InstrumentSort,
+  type InstrumentStats,
+  type InstrumentStatus,
+  type PublicInstrument,
 } from "@/types/instrument";
 
 // Postgres error code for a malformed literal passed to a typed column
@@ -84,6 +86,145 @@ export async function getInstrumentByIdForAdmin(id: string): Promise<Instrument 
   }
 
   return (data as Instrument | null) ?? null;
+}
+
+/**
+ * Same as getInstrumentByIdForAdmin, but by instrument_code — used by the
+ * QR download Route Handler to confirm a code corresponds to a real
+ * instrument (any archive state, same as the admin edit page) before a PNG
+ * is generated for it, without needing the caller to already know the id.
+ */
+export async function getInstrumentByCodeForAdmin(code: string): Promise<Instrument | null> {
+  if (!INSTRUMENT_CODE_PATTERN.test(code)) {
+    return null;
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("instruments")
+    .select(INSTRUMENT_COLUMNS)
+    .eq("instrument_code", code)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Could not load this instrument.");
+  }
+
+  return (data as Instrument | null) ?? null;
+}
+
+/**
+ * Member/admin-scoped lookup by instrument_code — the authenticated
+ * counterpart to getPublicInstrumentByCode. Used on the QR route
+ * (/i/[instrument_code]) once a session is confirmed, so a signed-in
+ * member gets the full record (and its id, needed to bind the existing
+ * borrowing flow) instead of the restricted public RPC's output. Relies
+ * on the same RLS as getInstrumentById — no separate access check needed
+ * here since RLS already limits reads to authenticated members/admins.
+ */
+export async function getInstrumentByCode(code: string): Promise<Instrument | null> {
+  if (!INSTRUMENT_CODE_PATTERN.test(code)) {
+    return null;
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("instruments")
+    .select(INSTRUMENT_COLUMNS)
+    .eq("instrument_code", code)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Could not load this instrument.");
+  }
+
+  return (data as Instrument | null) ?? null;
+}
+
+/**
+ * Public, anonymous-safe lookup by instrument_code — backs the QR route
+ * (/i/[instrument_code]). Unlike getInstrumentById, this never touches the
+ * `instruments` table directly: it calls the `get_public_instrument_by_code`
+ * SECURITY DEFINER RPC, which is the only thing granted EXECUTE to the
+ * `anon` role and which returns just the identification columns (no id,
+ * no notes, no purchase info, no archived rows — see the Module 9 SQL
+ * migration). Existing RLS on `instruments` is untouched.
+ *
+ * The regex check here is a cheap short-circuit, not the real guard — the
+ * RPC re-validates the same pattern server-side regardless of what this
+ * function is given.
+ */
+export async function getPublicInstrumentByCode(
+  code: string,
+): Promise<PublicInstrument | null> {
+  if (!INSTRUMENT_CODE_PATTERN.test(code)) {
+    return null;
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("get_public_instrument_by_code", {
+    p_code: code,
+  });
+
+  if (error) {
+    throw new Error("Could not load this instrument.");
+  }
+
+  const row = (data as PublicInstrument[] | null)?.[0];
+  return row ?? null;
+}
+
+// An admin printing bulk QR labels can only ever have this many rows
+// selected at once (mirrors the admin instrument list's page size), so
+// this also acts as a hard cap on how many QR codes get generated
+// server-side in a single request.
+const MAX_BULK_QR_IDS = 20;
+
+/**
+ * Fetches instruments by id for the bulk QR label page. Callers MUST have
+ * already verified the caller is an admin (see requireAdmin() in the page)
+ * — this function does not check that itself, matching the pattern used by
+ * getInstrumentByIdForAdmin. Ids that don't correspond to a real row are
+ * silently dropped rather than erroring, so a stale or hand-edited "ids"
+ * query string just yields fewer labels instead of a failure. Includes
+ * archived instruments (an admin relabeling a reactivated instrument is a
+ * legitimate use case), but the resulting label's QR will show a
+ * "not found" page to the public while the instrument stays archived.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function getInstrumentsByIds(ids: string[]): Promise<Instrument[]> {
+  // Filter out anything that isn't even UUID-shaped *before* querying — a
+  // single malformed id in the array would otherwise make Postgres reject
+  // the whole `IN (...)` list (22P02) and silently return zero rows for
+  // every id, not just the bad one.
+  const uniqueIds = Array.from(new Set(ids))
+    .filter((id) => UUID_PATTERN.test(id))
+    .slice(0, MAX_BULK_QR_IDS);
+  if (uniqueIds.length === 0) {
+    return [];
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("instruments")
+    .select(INSTRUMENT_COLUMNS)
+    .in("id", uniqueIds);
+
+  if (error) {
+    if (error.code === INVALID_TEXT_REPRESENTATION) {
+      return [];
+    }
+    throw new Error("Could not load the selected instruments.");
+  }
+
+  return (data as Instrument[] | null) ?? [];
 }
 
 export interface AdminInstrumentsQuery {

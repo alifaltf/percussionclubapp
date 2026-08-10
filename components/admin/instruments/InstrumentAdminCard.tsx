@@ -69,6 +69,12 @@ export default function InstrumentAdminCard({
           >
             Edit
           </Link>
+          <Link
+            href={`/admin/instruments/${instrument.id}/qr`}
+            className="text-sm font-medium text-[#666666] transition-colors duration-300 hover:text-[#C8A928]"
+          >
+            QR
+          </Link>
           <ArchiveInstrumentButton
             instrumentId={instrument.id}
             instrumentName={instrument.name}

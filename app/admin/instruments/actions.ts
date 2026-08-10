@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getStoragePathFromPublicUrl } from "@/lib/supabase/storage";
 import { instrumentHasOpenBorrowRequest } from "@/lib/supabase/borrow-requests";
 import {
+  INSTRUMENT_CODE_PATTERN,
   INSTRUMENT_CONDITIONS,
   INSTRUMENT_STATUSES,
   type InstrumentCondition,
@@ -24,7 +25,6 @@ export interface InstrumentActionResult {
 }
 
 const UNIQUE_VIOLATION = "23505";
-const CODE_PATTERN = /^[a-z0-9]+(_[a-z0-9]+)*$/;
 const INSTRUMENT_IMAGES_BUCKET = "instrument-images";
 
 async function assertAdmin(): Promise<void> {
@@ -62,7 +62,7 @@ function readInstrumentFields(formData: FormData) {
 }
 
 function validateFields(fields: ReturnType<typeof readInstrumentFields>): string | null {
-  if (!fields.instrumentCode || !CODE_PATTERN.test(fields.instrumentCode)) {
+  if (!fields.instrumentCode || !INSTRUMENT_CODE_PATTERN.test(fields.instrumentCode)) {
     return "Instrument code must use lowercase letters, numbers and underscores (e.g. conga_1).";
   }
   if (!fields.name) {

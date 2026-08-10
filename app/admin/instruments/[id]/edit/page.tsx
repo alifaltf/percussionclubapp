@@ -55,12 +55,20 @@ export default async function EditInstrumentPage({ params }: EditInstrumentPageP
             </h1>
             <p className="mt-2 text-sm text-[#666666]">{instrument.instrument_code}</p>
           </div>
-          <ArchiveInstrumentButton
-            instrumentId={instrument.id}
-            instrumentName={instrument.name}
-            isArchived={Boolean(instrument.archived_at)}
-            redirectTo="/admin/instruments"
-          />
+          <div className="flex items-center gap-4">
+            <Link
+              href={`/admin/instruments/${instrument.id}/qr`}
+              className="text-sm font-medium text-[#666666] transition-colors duration-300 hover:text-[#C8A928]"
+            >
+              QR Label
+            </Link>
+            <ArchiveInstrumentButton
+              instrumentId={instrument.id}
+              instrumentName={instrument.name}
+              isArchived={Boolean(instrument.archived_at)}
+              redirectTo="/admin/instruments"
+            />
+          </div>
         </div>
 
         <div className="mt-8 rounded-2xl border border-[#E8E8E8] bg-white p-8 shadow-sm sm:p-10">

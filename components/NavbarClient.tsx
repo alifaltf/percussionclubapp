@@ -68,7 +68,7 @@ export default function NavbarClient({
   });
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[#E8E8E8] bg-white">
+    <header className="sticky top-0 z-50 w-full border-b border-[#E8E8E8] bg-white print:hidden">
       <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
         <Link
           href="/"

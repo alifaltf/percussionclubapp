@@ -71,3 +71,27 @@ body {
 .animate-bounce-subtle {
   animation: bounce-subtle 2s ease-in-out infinite;
 }
+
+/*
+ * QR label printing (Module 9). The SVG the `qrcode` package returns has
+ * no intrinsic width/height (viewBox only), so it needs an explicit size
+ * here to fill its container reliably across browsers instead of falling
+ * back to a default replaced-element size.
+ */
+.qr-label__code svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media print {
+  /* Deliberately no `@page { size: ... }` here — forcing one physical
+     page size fights the browser's print dialog when an admin is printing
+     a sheet of several labels at once. Each label instead carries its own
+     fixed print width (see InstrumentQrLabel) and is protected from being
+     split across a page break individually. */
+  .qr-label {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

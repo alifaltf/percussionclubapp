@@ -1,3 +1,8 @@
+// Shared with the QR route/lookup layer (lib/qr.ts, lib/supabase/instruments.ts)
+// so client-side validation, server-side validation and the public RPC's
+// defensive check all agree on exactly one definition of "valid code".
+export const INSTRUMENT_CODE_PATTERN = /^[a-z0-9]+(_[a-z0-9]+)*$/;
+
 export type InstrumentStatus =
   | "available"
   | "pending"
@@ -65,6 +70,22 @@ export const STATUS_UNAVAILABLE_REASONS: Partial<Record<InstrumentStatus, string
   not_ready: "This instrument isn't ready for use yet.",
   maintenance: "This instrument is currently under maintenance.",
 };
+
+/**
+ * The safe subset of instrument fields returned by the public
+ * `get_public_instrument_by_code` RPC (see the Module 9 migration) for
+ * logged-out visitors scanning a QR code. Deliberately excludes id,
+ * description, purchase_date, notes, archived_at and all timestamps —
+ * anything not needed to identify the instrument on the public page.
+ */
+export interface PublicInstrument {
+  instrument_code: string;
+  name: string;
+  category: string;
+  image_url: string | null;
+  status: InstrumentStatus;
+  condition: InstrumentCondition;
+}
 
 export type InstrumentSort = "newest" | "oldest" | "name-asc" | "name-desc";
 
