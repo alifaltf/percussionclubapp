@@ -38,11 +38,6 @@ const QUICK_ACTIONS = [
     icon: <PlusIcon className="h-5 w-5" />,
   },
   {
-    label: "Manage Members",
-    href: "/admin/members",
-    icon: <UsersIcon className="h-5 w-5" />,
-  },
-  {
     label: "Review Borrow Requests",
     href: "/admin/requests",
     icon: <SwapIcon className="h-5 w-5" />,

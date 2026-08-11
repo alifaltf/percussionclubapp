@@ -11,7 +11,7 @@ import { getSiteSettings } from "@/lib/supabase/settings";
 import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
 
 const CLUB_LINKS = [
-  { label: "Join Us", href: "#contact" },
+  { label: "Join Us", href: "/#contact" },
   { label: "Login", href: "/login" },
   { label: "Instruments", href: "/instruments" },
   { label: "Announcements", href: "/announcements" },
@@ -23,7 +23,7 @@ export default async function Footer() {
 
   const exploreLinks = [
     { key: "home", label: "Home", href: "/" },
-    { key: "about", label: "About", href: "/about" },
+    { key: "about", label: "About", href: "/#about" },
     { key: "gallery", label: "Gallery", href: "/gallery" },
     { key: "events", label: "Events", href: "/events" },
     { key: "mainboard", label: "Mainboard", href: "/#mainboard" },

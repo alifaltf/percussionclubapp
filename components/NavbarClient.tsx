@@ -11,10 +11,10 @@ import { getInitials } from "@/utils/get-initials";
 
 const BASE_NAV_LINKS = [
   { key: "home", label: "Home", href: "/" },
-  { key: "about", label: "About", href: "/about" },
+  { key: "about", label: "About", href: "/#about" },
   { key: "gallery", label: "Gallery", href: "/gallery" },
   { key: "events", label: "Events", href: "/events" },
-  { key: "committee", label: "Committee", href: "/committee" },
+  { key: "committee", label: "Committee", href: "/#mainboard" },
   { key: "contact", label: "Contact", href: "/#contact" },
 ];
 
@@ -30,7 +30,6 @@ const ADMIN_MENU_ITEMS = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Announcements", href: "/announcements" },
   { label: "Admin Panel", href: "/admin" },
-  { label: "Members", href: "/admin/members" },
   { label: "Instruments", href: "/admin/instruments" },
   { label: "Requests", href: "/admin/requests" },
   { label: "Reports", href: "/admin/reports" },
