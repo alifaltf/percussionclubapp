@@ -53,7 +53,7 @@ export default async function About() {
 
           <Reveal delayMs={400}>
             <div className="mt-10">
-              <Button href="/about" variant="outline">
+              <Button href="/#about" variant="outline">
                 Discover Our Story
               </Button>
             </div>

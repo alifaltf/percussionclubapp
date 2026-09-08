@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useActionState,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Button from "@/components/ui/Button";
+import {
+  submitContactMessage,
+  type ContactState,
+} from "@/app/contact/actions";
 
 interface FormValues {
   fullName: string;
@@ -17,8 +26,6 @@ interface FormErrors {
   message?: string;
 }
 
-type SubmitStatus = "idle" | "submitting" | "success";
-
 const INITIAL_VALUES: FormValues = {
   fullName: "",
   email: "",
@@ -26,8 +33,12 @@ const INITIAL_VALUES: FormValues = {
   message: "",
 };
 
+const INITIAL_STATE: ContactState = { status: "idle", message: null };
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// First-pass UX validation only — the Server Action re-validates everything
+// server-side, since client-side checks can always be bypassed.
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
 
@@ -68,9 +79,12 @@ function fieldStyles(hasError: boolean) {
 }
 
 export default function ContactForm() {
+  const [state, formAction, isPending] = useActionState(
+    submitContactMessage,
+    INITIAL_STATE,
+  );
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [status, setStatus] = useState<SubmitStatus>("idle");
 
   const handleChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -81,29 +95,21 @@ export default function ContactForm() {
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
     const validationErrors = validate(values);
     if (Object.keys(validationErrors).length > 0) {
+      event.preventDefault();
       setErrors(validationErrors);
-      return;
     }
-
-    setStatus("submitting");
-
-    // Temporary placeholder submission — not yet connected to Supabase.
-    setTimeout(() => {
-      setStatus("success");
-      setValues(INITIAL_VALUES);
-    }, 600);
   };
 
   const handleReset = () => {
-    setStatus("idle");
+    setValues(INITIAL_VALUES);
     setErrors({});
   };
 
-  if (status === "success") {
+  const isBusy = isPending;
+
+  if (state.status === "success") {
     return (
       <div className="flex flex-col items-center justify-center rounded-sm border border-[#E8E8E8] bg-white px-6 py-16 text-center">
         <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[#C8A928] text-[#C8A928]">
@@ -126,7 +132,8 @@ export default function ContactForm() {
           Message Sent
         </h3>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-[#666666]">
-          Thank you for reaching out — we&apos;ll get back to you soon.
+          {state.message ??
+            "Thank you for reaching out — we'll get back to you soon."}
         </p>
         <button
           type="button"
@@ -140,7 +147,21 @@ export default function ContactForm() {
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="space-y-6">
+    <form noValidate action={formAction} onSubmit={handleSubmit} className="space-y-6">
+      {/* Honeypot: hidden from real visitors via CSS; simple bots that fill
+          every field will trip it, causing the Server Action to silently
+          no-op instead of persisting the submission. */}
+      <div className="hidden" aria-hidden="true">
+        <label htmlFor="company">Company</label>
+        <input
+          id="company"
+          name="company"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
       <div>
         <label
           htmlFor="fullName"
@@ -239,13 +260,21 @@ export default function ContactForm() {
         )}
       </div>
 
+      <div aria-live="polite">
+        {state.status === "error" && state.message && (
+          <p role="alert" className="text-sm text-red-600">
+            {state.message}
+          </p>
+        )}
+      </div>
+
       <Button
         type="submit"
         variant="primary"
-        disabled={status === "submitting"}
+        disabled={isBusy}
         className="w-full sm:w-auto"
       >
-        {status === "submitting" ? "Sending..." : "Send Message"}
+        {isBusy ? "Sending..." : "Send Message"}
       </Button>
     </form>
   );

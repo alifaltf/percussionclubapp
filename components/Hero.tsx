@@ -50,7 +50,7 @@ export default async function Hero() {
             <Button href={settings.join_us_url} variant="primary">
               {settings.contact_cta_text}
             </Button>
-            <Button href="/about" variant="outline">
+            <Button href="/#about" variant="outline">
               Explore
             </Button>
           </div>

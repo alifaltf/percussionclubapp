@@ -33,6 +33,7 @@ const ADMIN_MENU_ITEMS = [
   { label: "Members", href: "/admin/members" },
   { label: "Instruments", href: "/admin/instruments" },
   { label: "Requests", href: "/admin/requests" },
+  { label: "Messages", href: "/admin/messages" },
   { label: "Reports", href: "/admin/reports" },
   { label: "Settings", href: "/admin/settings" },
   { label: "Profile", href: "/profile" },

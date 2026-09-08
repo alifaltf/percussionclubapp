@@ -1,5 +1,7 @@
 import MainboardCard from "@/components/ui/MainboardCard";
 import Reveal from "@/components/ui/Reveal";
+import EmptyState from "@/components/ui/EmptyState";
+import { UsersIcon } from "@/components/ui/icons";
 
 const PLACEHOLDER_SOCIAL = {
   instagram: "#",
@@ -51,6 +53,13 @@ const MAINBOARD_MEMBERS = [
   },
 ];
 
+// MAINBOARD_MEMBERS is currently all placeholder data (name: "Full Name").
+// Real people are never fabricated here: an entry only renders once its
+// name has been replaced with an actual committee member's name.
+const REAL_MEMBERS = MAINBOARD_MEMBERS.filter(
+  (member) => member.name.trim() !== "" && member.name.trim() !== "Full Name",
+);
+
 export default function Mainboard() {
   return (
     <section id="mainboard" className="bg-[#F8F8F6] py-24 sm:py-32">
@@ -69,13 +78,23 @@ export default function Mainboard() {
           </p>
         </Reveal>
 
-        <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {MAINBOARD_MEMBERS.map((member, index) => (
-            <Reveal key={member.position} delayMs={(index % 3) * 100}>
-              <MainboardCard {...member} />
-            </Reveal>
-          ))}
-        </div>
+        {REAL_MEMBERS.length === 0 ? (
+          <div className="mt-16">
+            <EmptyState
+              icon={<UsersIcon className="h-5 w-5" />}
+              title="Mainboard details coming soon"
+              description="We're putting together introductions for this year's mainboard. Check back soon to meet the team."
+            />
+          </div>
+        ) : (
+          <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {REAL_MEMBERS.map((member, index) => (
+              <Reveal key={member.position} delayMs={(index % 3) * 100}>
+                <MainboardCard {...member} />
+              </Reveal>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

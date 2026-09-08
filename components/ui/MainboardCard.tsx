@@ -14,6 +14,13 @@ interface MainboardCardProps {
   social: SocialLinks;
 }
 
+// A social link is only rendered when it points somewhere real — an empty
+// string or the "#" placeholder used before real data exists is treated as
+// "no link" rather than a dead icon.
+function isRealLink(value: string | undefined | null): boolean {
+  return Boolean(value && value.trim() !== "" && value.trim() !== "#");
+}
+
 export default function MainboardCard({
   image,
   name,
@@ -21,6 +28,8 @@ export default function MainboardCard({
   bio,
   social,
 }: MainboardCardProps) {
+  const hasVisibleSocialLinks = isRealLink(social.instagram) || isRealLink(social.email);
+
   return (
     <div className="group flex flex-col items-center rounded-2xl border border-[#E8E8E8] bg-white p-8 text-center transition-all duration-300 hover:-translate-y-1 hover:border-[#C8A928]/40 hover:shadow-sm">
       <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-[#C8A928]/30">
@@ -43,22 +52,28 @@ export default function MainboardCard({
 
       <p className="mt-4 text-sm leading-relaxed text-[#666666]">{bio}</p>
 
-      <div className="mt-6 flex items-center gap-3">
-        <a
-          href={social.instagram}
-          aria-label={`${name} on Instagram`}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E8E8] text-[#666666] transition-colors duration-300 hover:border-[#C8A928] hover:text-[#C8A928]"
-        >
-          <InstagramIcon />
-        </a>
-        <a
-          href={social.email}
-          aria-label={`Email ${name}`}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E8E8] text-[#666666] transition-colors duration-300 hover:border-[#C8A928] hover:text-[#C8A928]"
-        >
-          <EmailIcon />
-        </a>
-      </div>
+      {hasVisibleSocialLinks && (
+        <div className="mt-6 flex items-center gap-3">
+          {isRealLink(social.instagram) && (
+            <a
+              href={social.instagram}
+              aria-label={`${name} on Instagram`}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E8E8] text-[#666666] transition-colors duration-300 hover:border-[#C8A928] hover:text-[#C8A928]"
+            >
+              <InstagramIcon />
+            </a>
+          )}
+          {isRealLink(social.email) && (
+            <a
+              href={social.email}
+              aria-label={`Email ${name}`}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E8E8] text-[#666666] transition-colors duration-300 hover:border-[#C8A928] hover:text-[#C8A928]"
+            >
+              <EmailIcon />
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }

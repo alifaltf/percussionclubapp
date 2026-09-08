@@ -18,8 +18,10 @@ import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getInstrumentStats } from "@/lib/supabase/instruments";
 import { getMyBorrowStats } from "@/lib/supabase/borrow-requests";
 import { getLatestDashboardAnnouncements } from "@/lib/supabase/announcements";
-import { UPCOMING_EVENTS, UPCOMING_EVENTS_COUNT } from "@/app/dashboard/data";
+import { getEventStats, getHomepageEvents } from "@/lib/supabase/events";
+import { formatEventDate } from "@/utils/format-event";
 import type { Announcement } from "@/types/announcement";
+import type { Event } from "@/types/event";
 
 export default async function DashboardPage() {
   const { user, profile } = await getCurrentUser();
@@ -37,23 +39,28 @@ export default async function DashboardPage() {
     day: "numeric",
   });
 
-  // Instruments, borrow requests and announcements are real data; Events'
-  // dashboard card stays a placeholder (see app/dashboard/data.ts) until
-  // that's wired up here too — out of scope for this module.
   let statsError = false;
   let instrumentStats: Awaited<ReturnType<typeof getInstrumentStats>> | null = null;
   let borrowStats: Awaited<ReturnType<typeof getMyBorrowStats>> | null = null;
   let announcements: Announcement[] = [];
+  let eventStats: Awaited<ReturnType<typeof getEventStats>> | null = null;
+  let upcomingEvents: Event[] = [];
 
   try {
-    [instrumentStats, borrowStats, announcements] = await Promise.all([
+    [instrumentStats, borrowStats, announcements, eventStats, upcomingEvents] = await Promise.all([
       getInstrumentStats(),
       getMyBorrowStats(),
       getLatestDashboardAnnouncements(),
+      getEventStats(),
+      getHomepageEvents(),
     ]);
   } catch {
     statsError = true;
   }
+
+  const upcomingEventItems = upcomingEvents.map(
+    (event) => `${event.title} — ${formatEventDate(event.event_date, true)}`,
+  );
 
   const summaryStats = [
     {
@@ -73,7 +80,7 @@ export default async function DashboardPage() {
     },
     {
       label: "Upcoming Events",
-      value: UPCOMING_EVENTS_COUNT,
+      value: eventStats?.upcoming ?? "—",
       icon: <CalendarIcon className="h-5 w-5" />,
     },
   ];
@@ -161,7 +168,7 @@ export default async function DashboardPage() {
           <ListCard
             title="Upcoming Events"
             icon={<CalendarIcon className="h-4 w-4" />}
-            items={UPCOMING_EVENTS}
+            items={upcomingEventItems}
             viewAllHref="/events"
             viewAllLabel="View All Events"
           />

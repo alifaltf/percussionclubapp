@@ -116,15 +116,18 @@ Plus:
 /
 Landing Page
 
-/about
+/#about
+Homepage section (not a standalone route)
 
 /gallery
 
 /events
 
-/committee
+/#mainboard
+Homepage section (not a standalone route)
 
-/contact
+/#contact
+Homepage section (not a standalone route)
 
 /login
 

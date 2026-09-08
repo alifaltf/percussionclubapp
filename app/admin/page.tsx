@@ -1,7 +1,6 @@
 import Badge from "@/components/ui/Badge";
 import SummaryCard from "@/components/dashboard/SummaryCard";
 import QuickActionCard from "@/components/dashboard/QuickActionCard";
-import ListCard from "@/components/dashboard/ListCard";
 import {
   AlertTriangleIcon,
   BarChartIcon,
@@ -9,6 +8,7 @@ import {
   CameraIcon,
   CheckCircleIcon,
   ClockIcon,
+  EmailIcon,
   GalleryIcon,
   InstrumentIcon,
   MegaphoneIcon,
@@ -24,7 +24,7 @@ import { getBorrowRequestStats } from "@/lib/supabase/borrow-requests";
 import { getEventStats } from "@/lib/supabase/events";
 import { getGalleryStats } from "@/lib/supabase/gallery";
 import { getAnnouncementStats } from "@/lib/supabase/announcements";
-import { RECENT_ACTIVITY, TOTAL_MEMBERS } from "@/app/admin/data";
+import { getMemberCount } from "@/lib/supabase/profiles";
 
 const QUICK_ACTIONS = [
   {
@@ -46,6 +46,11 @@ const QUICK_ACTIONS = [
     label: "Review Borrow Requests",
     href: "/admin/requests",
     icon: <SwapIcon className="h-5 w-5" />,
+  },
+  {
+    label: "View Contact Messages",
+    href: "/admin/messages",
+    icon: <EmailIcon className="h-5 w-5" />,
   },
   {
     label: "Manage Events",
@@ -84,15 +89,18 @@ export default async function AdminDashboardPage() {
   let eventStats: Awaited<ReturnType<typeof getEventStats>> | null = null;
   let galleryStats: Awaited<ReturnType<typeof getGalleryStats>> | null = null;
   let announcementStats: Awaited<ReturnType<typeof getAnnouncementStats>> | null = null;
+  let memberCount: number | null = null;
 
   try {
-    [instrumentStats, requestStats, eventStats, galleryStats, announcementStats] = await Promise.all([
-      getInstrumentStats(),
-      getBorrowRequestStats(),
-      getEventStats(),
-      getGalleryStats(),
-      getAnnouncementStats(),
-    ]);
+    [instrumentStats, requestStats, eventStats, galleryStats, announcementStats, memberCount] =
+      await Promise.all([
+        getInstrumentStats(),
+        getBorrowRequestStats(),
+        getEventStats(),
+        getGalleryStats(),
+        getAnnouncementStats(),
+        getMemberCount(),
+      ]);
   } catch {
     statsError = true;
   }
@@ -104,7 +112,7 @@ export default async function AdminDashboardPage() {
   const activeBorrowings = (requestStats?.active ?? 0) + (requestStats?.overdue ?? 0);
 
   const statCards = [
-    { label: "Total Members", value: TOTAL_MEMBERS, icon: <UsersIcon className="h-5 w-5" /> },
+    { label: "Total Members", value: memberCount ?? "—", icon: <UsersIcon className="h-5 w-5" /> },
     {
       label: "Total Instruments",
       value: instrumentStats?.total ?? "—",
@@ -254,15 +262,6 @@ export default async function AdminDashboardPage() {
               />
             ))}
           </div>
-        </div>
-
-        {/* Recent activity */}
-        <div className="mt-12 max-w-2xl">
-          <ListCard
-            title="Recent Activity"
-            icon={<ClockIcon className="h-4 w-4" />}
-            items={RECENT_ACTIVITY}
-          />
         </div>
       </div>
     </main>

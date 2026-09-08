@@ -29,3 +29,22 @@ export async function getAllMembers(): Promise<Member[]> {
 
   return data ?? [];
 }
+
+/**
+ * Total member count for the admin dashboard's "Total Members" card. A
+ * head-only count query (same pattern as getGalleryAnalytics' image count)
+ * so the dashboard doesn't have to pull every profile row just to count
+ * them.
+ */
+export async function getMemberCount(): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true });
+
+  if (error) {
+    throw new Error("Could not load member count.");
+  }
+
+  return count ?? 0;
+}
