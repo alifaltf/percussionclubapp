@@ -2,19 +2,24 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Button from "@/components/ui/Button";
 import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
-import { login, type LoginState } from "@/app/login/actions";
+import {
+  updatePassword,
+  type ResetPasswordState,
+} from "@/app/reset-password/actions";
 
-const INITIAL_STATE: LoginState = { status: "idle", message: null };
+const INITIAL_STATE: ResetPasswordState = { status: "idle", message: null };
 
 const FIELD_STYLES =
   "w-full rounded-sm border border-[#E8E8E8] bg-white px-4 py-2.5 text-sm text-[#111111] transition-colors duration-300 placeholder:text-[#666666] focus:outline-none focus:border-[#C8A928] focus:ring-1 focus:ring-[#C8A928]";
 
-export default function LoginForm() {
+export default function ResetPasswordForm() {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(login, INITIAL_STATE);
+  const [state, formAction, isPending] = useActionState(
+    updatePassword,
+    INITIAL_STATE,
+  );
   const [showPassword, setShowPassword] = useState(false);
 
   const isBusy = isPending || state.status === "success";
@@ -30,34 +35,19 @@ export default function LoginForm() {
     <form action={formAction} className="space-y-6">
       <div>
         <label
-          htmlFor="email"
-          className="mb-2 block text-sm font-medium text-[#111111]"
-        >
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className={FIELD_STYLES}
-        />
-      </div>
-
-      <div>
-        <label
           htmlFor="password"
           className="mb-2 block text-sm font-medium text-[#111111]"
         >
-          Password
+          New Password
         </label>
         <div className="relative">
           <input
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
             required
             className={`${FIELD_STYLES} pr-11`}
           />
@@ -71,24 +61,28 @@ export default function LoginForm() {
             {showPassword ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         </div>
+        <p className="mt-1.5 text-xs text-[#666666]">
+          Must be 8–128 characters.
+        </p>
       </div>
 
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-[#666666]">
-          <input
-            type="checkbox"
-            name="remember"
-            className="h-4 w-4 rounded-sm border-[#E8E8E8] text-[#C8A928] focus:ring-[#C8A928]"
-          />
-          Remember me
-        </label>
-
-        <Link
-          href="/forgot-password"
-          className="text-sm text-[#C8A928] transition-colors duration-300 hover:text-[#9E8217]"
+      <div>
+        <label
+          htmlFor="confirmPassword"
+          className="mb-2 block text-sm font-medium text-[#111111]"
         >
-          Forgot password?
-        </Link>
+          Confirm New Password
+        </label>
+        <input
+          id="confirmPassword"
+          name="confirmPassword"
+          type={showPassword ? "text" : "password"}
+          autoComplete="new-password"
+          minLength={8}
+          maxLength={128}
+          required
+          className={FIELD_STYLES}
+        />
       </div>
 
       <div aria-live="polite">
@@ -108,7 +102,7 @@ export default function LoginForm() {
         disabled={isBusy}
         className="w-full"
       >
-        {isBusy ? "Signing in..." : "Sign In"}
+        {isBusy ? "Updating..." : "Update Password"}
       </Button>
     </form>
   );

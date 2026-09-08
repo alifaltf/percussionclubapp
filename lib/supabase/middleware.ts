@@ -2,7 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/instruments", "/admin"];
-const AUTH_ONLY_PREFIXES = ["/login"];
+// /reset-password is intentionally NOT protected here — it needs its own
+// server-side session check (see app/reset-password/page.tsx) so a
+// missing/expired recovery link can redirect to a friendly
+// /forgot-password?error=invalid_link message instead of the generic
+// /login bounce this list would otherwise produce.
+const AUTH_ONLY_PREFIXES = ["/login", "/forgot-password"];
 
 // Paths that are never subject to maintenance mode or the public
 // gallery/events feature toggles, regardless of their state:
