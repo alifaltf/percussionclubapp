@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getMalaysiaTodayIsoDate } from "@/lib/date";
 import type {
   Event,
   EventArchiveState,
@@ -26,12 +27,8 @@ const EVENT_COLUMNS =
 // "cancelled".
 // ---------------------------------------------------------------------------
 
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function isPastEventDate(eventDate: string): boolean {
-  return eventDate < todayIsoDate();
+  return eventDate < getMalaysiaTodayIsoDate();
 }
 
 function withEffectiveStatus(event: Event): Event {
@@ -128,7 +125,7 @@ export async function getHomepageEvents(): Promise<Event[]> {
     .select(EVENT_COLUMNS)
     .eq("status", "published")
     .is("archived_at", null)
-    .gte("event_date", todayIsoDate())
+    .gte("event_date", getMalaysiaTodayIsoDate())
     .order("is_featured", { ascending: false })
     .order("event_date", { ascending: true })
     .limit(3);
@@ -274,7 +271,7 @@ export async function getEventStats(): Promise<EventStats> {
   }
 
   const rows = data ?? [];
-  const today = todayIsoDate();
+  const today = getMalaysiaTodayIsoDate();
 
   return {
     total: rows.length,

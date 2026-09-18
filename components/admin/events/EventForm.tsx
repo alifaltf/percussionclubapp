@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import FormField from "@/components/ui/FormField";
 import ImageUploadField from "@/components/ui/ImageUploadField";
@@ -72,7 +72,16 @@ export default function EventForm({ mode, event, action }: EventFormProps) {
       formData.set("wasPublished", String(event.status === "published"));
     }
 
-    formAction(formData);
+    // useActionState's dispatch (formAction) is only safe to invoke two ways:
+    // as a form action/formAction prop (which React wraps in a transition
+    // automatically), or manually inside startTransition. Calling it bare
+    // after the async banner-upload step triggers "An async function with
+    // useActionState was called outside of a transition" and leaves
+    // isSubmitting/pending state unreliable. This is the same fix already
+    // applied to InstrumentForm.tsx and ReturnForm.tsx.
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   return (

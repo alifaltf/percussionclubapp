@@ -6,6 +6,7 @@ import EventCard from "@/components/ui/EventCard";
 import EventStatusBadge from "@/components/events/EventStatusBadge";
 import EventsFilterBar from "@/components/events/EventsFilterBar";
 import { CalendarIcon } from "@/components/ui/icons";
+import { getMalaysiaTodayIsoDate } from "@/lib/date";
 import { getPublicEvents } from "@/lib/supabase/events";
 import { formatEventDate, formatEventTimeRange } from "@/utils/format-event";
 import type { Event, PublicEventFilter } from "@/types/event";
@@ -16,10 +17,6 @@ interface EventsPageProps {
 
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function toCardProps(event: Event) {
@@ -57,7 +54,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     loadError = true;
   }
 
-  const today = todayIsoDate();
+  const today = getMalaysiaTodayIsoDate();
   const upcoming = events.filter((event) => event.event_date >= today);
   const past = events.filter((event) => event.event_date < today);
   const completed = events.filter((event) => event.status === "completed");
