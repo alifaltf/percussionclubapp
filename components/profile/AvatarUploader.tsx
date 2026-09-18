@@ -6,8 +6,10 @@ import Image from "next/image";
 import { CameraIcon } from "@/components/ui/icons";
 import { uploadAvatar, type AvatarState } from "@/app/profile/actions";
 import { getInitials } from "@/utils/get-initials";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_FILE_SIZE = IMAGE_UPLOAD_LIMITS.avatar;
+const MAX_FILE_SIZE_MB = MAX_FILE_SIZE / (1024 * 1024);
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const INITIAL_STATE: AvatarState = { status: "idle", message: null };
@@ -50,7 +52,7 @@ export default function AvatarUploader({
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      setPreviewError("Image must be 2MB or smaller.");
+      setPreviewError(`Image must be ${MAX_FILE_SIZE_MB}MB or smaller.`);
       event.target.value = "";
       return;
     }
@@ -124,7 +126,7 @@ export default function AvatarUploader({
         )}
       </div>
 
-      <p className="text-xs text-[#666666]">JPG, PNG or WebP · Max 2MB</p>
+      <p className="text-xs text-[#666666]">JPG, PNG or WebP · Max {MAX_FILE_SIZE_MB}MB</p>
     </form>
   );
 }

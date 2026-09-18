@@ -7,10 +7,13 @@ import Button from "@/components/ui/Button";
 import GalleryImageCard from "@/components/admin/gallery/GalleryImageCard";
 import { CameraIcon, GalleryIcon } from "@/components/ui/icons";
 import { uploadGalleryImages } from "@/lib/supabase/storage";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 import { addGalleryImages, reorderGalleryImages } from "@/app/admin/gallery/actions";
 import type { GalleryImage } from "@/types/gallery";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FILE_SIZE = IMAGE_UPLOAD_LIMITS.gallery;
+const MAX_FILE_SIZE_MB = MAX_FILE_SIZE / (1024 * 1024);
 
 interface AlbumImageManagerProps {
   albumId: string;
@@ -62,8 +65,8 @@ export default function AlbumImageManager({
     for (const file of files) {
       if (!ACCEPTED_TYPES.includes(file.type)) {
         immediateFailures.push({ name: file.name, message: "Unsupported file type." });
-      } else if (file.size > 8 * 1024 * 1024) {
-        immediateFailures.push({ name: file.name, message: "Larger than 8MB." });
+      } else if (file.size > MAX_FILE_SIZE) {
+        immediateFailures.push({ name: file.name, message: `Larger than ${MAX_FILE_SIZE_MB}MB.` });
       } else {
         validFiles.push(file);
       }
@@ -138,7 +141,7 @@ export default function AlbumImageManager({
       <div className="rounded-2xl border border-dashed border-[#E8E8E8] bg-[#F8F8F6] p-6 text-center">
         <CameraIcon className="mx-auto h-8 w-8 text-[#C8A928]/60" />
         <p className="mt-2 text-sm text-[#666666]">
-          Upload photos to this album — JPG, PNG or WebP, up to 8MB each.
+          Upload photos to this album — JPG, PNG or WebP, up to {MAX_FILE_SIZE_MB}MB each.
         </p>
         <button
           type="button"

@@ -6,6 +6,7 @@ import FormField from "@/components/ui/FormField";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import { CameraIcon } from "@/components/ui/icons";
 import { uploadSiteAsset } from "@/lib/supabase/storage";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 import { updateGeneralSettings } from "@/app/admin/settings/actions";
 import type { SettingsActionState, SiteSettings } from "@/types/settings";
 
@@ -89,7 +90,7 @@ export default function GeneralSettingsForm({ settings }: GeneralSettingsFormPro
           uploadProgress={logoProgress}
           disabled={busy}
           error={logoError}
-          maxSizeBytes={2 * 1024 * 1024}
+          maxSizeBytes={IMAGE_UPLOAD_LIMITS.siteAsset}
         />
         <ImageUploadField
           label="Favicon"
@@ -100,7 +101,7 @@ export default function GeneralSettingsForm({ settings }: GeneralSettingsFormPro
           uploadProgress={faviconProgress}
           disabled={busy}
           error={faviconError}
-          maxSizeBytes={2 * 1024 * 1024}
+          maxSizeBytes={IMAGE_UPLOAD_LIMITS.siteAsset}
         />
       </div>
 

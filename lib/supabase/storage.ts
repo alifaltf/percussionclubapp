@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 
 export interface UploadImageResult {
   path: string;
@@ -9,11 +10,15 @@ const INSTRUMENT_IMAGES_BUCKET = "instrument-images";
 const EVENT_IMAGES_BUCKET = "event-images";
 const RETURN_PHOTOS_BUCKET = "return-photos";
 const GALLERY_IMAGES_BUCKET = "gallery-images";
-const GALLERY_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const GALLERY_IMAGE_MAX_BYTES = IMAGE_UPLOAD_LIMITS.gallery;
 const SITE_ASSETS_BUCKET = "site-assets";
-// Matches the site-assets bucket's own file_size_limit — checked client-side
-// too so the member gets an immediate message instead of a failed request.
-const SITE_ASSET_MAX_BYTES = 2 * 1024 * 1024;
+// Intended to match the site-assets bucket's own file_size_limit — checked
+// client-side too so the member gets an immediate message instead of a
+// failed request. IMAGE_UPLOAD_LIMITS.siteAsset is the app's approved
+// value; the live Supabase bucket's file_size_limit is configured
+// separately in Supabase and isn't touched by this app-code change, so it
+// should be confirmed/updated to match outside of this codebase.
+const SITE_ASSET_MAX_BYTES = IMAGE_UPLOAD_LIMITS.siteAsset;
 
 // Both callers already validate MIME type before calling these functions,
 // but the storage path is still built from the *filename's* extension, and
@@ -37,8 +42,10 @@ function safeImageExtension(fileName: string): string {
  *
  * This also keeps file bytes out of Server Actions entirely — Next.js
  * caps Server Action request bodies at 1MB by default, well under these
- * buckets' 5MB limit, so routing uploads through an action would fail for
- * anything over ~1MB.
+ * buckets' approved limits (see lib/upload-limits.ts), so routing uploads
+ * through an action would fail for anything over ~1MB. (uploadAvatar is the
+ * one exception — see the comment on experimental.serverActions.bodySizeLimit
+ * in next.config.ts.)
  *
  * Shared by uploadInstrumentImage, uploadEventBanner and uploadGalleryImage
  * — all public buckets keyed by a random filename, optionally nested under
@@ -144,7 +151,7 @@ export async function uploadSiteAsset(
   onProgress: (percent: number) => void,
 ): Promise<UploadImageResult> {
   if (file.size > SITE_ASSET_MAX_BYTES) {
-    throw new Error(`"${file.name}" is larger than 2MB.`);
+    throw new Error(`"${file.name}" is larger than ${SITE_ASSET_MAX_BYTES / (1024 * 1024)}MB.`);
   }
   return uploadToPublicBucket(
     SITE_ASSETS_BUCKET,
@@ -174,7 +181,7 @@ export async function uploadGalleryImage(
     throw new Error("Invalid album reference.");
   }
   if (file.size > GALLERY_IMAGE_MAX_BYTES) {
-    throw new Error(`"${file.name}" is larger than 8MB.`);
+    throw new Error(`"${file.name}" is larger than ${GALLERY_IMAGE_MAX_BYTES / (1024 * 1024)}MB.`);
   }
   return uploadToPublicBucket(
     GALLERY_IMAGES_BUCKET,

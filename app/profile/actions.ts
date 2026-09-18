@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 
 export interface ProfileFormState {
   status: "idle" | "error" | "success";
@@ -58,7 +59,7 @@ export interface AvatarState {
   avatarUrl?: string;
 }
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_FILE_SIZE = IMAGE_UPLOAD_LIMITS.avatar;
 
 const ALLOWED_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -85,7 +86,10 @@ export async function uploadAvatar(
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return { status: "error", message: "Image must be 2MB or smaller." };
+    return {
+      status: "error",
+      message: `Image must be ${MAX_FILE_SIZE / (1024 * 1024)}MB or smaller.`,
+    };
   }
 
   const supabase = await createClient();

@@ -17,6 +17,19 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // uploadAvatar (app/profile/actions.ts) is the one image-upload path that
+  // sends raw file bytes through a Server Action rather than uploading
+  // client-side straight to Storage — every other bucket (instrument/event/
+  // gallery/site-asset) bypasses this cap entirely. Next.js defaults Server
+  // Action request bodies to 1MB, well under the approved 10MB avatar
+  // limit (lib/upload-limits.ts), so this must be raised to match or avatar
+  // uploads above ~1MB would fail at the framework level regardless of the
+  // app's own size validation.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "11mb",
+    },
+  },
   images: {
     remotePatterns: supabaseHostname
       ? [

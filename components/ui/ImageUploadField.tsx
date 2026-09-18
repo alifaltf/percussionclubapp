@@ -1,8 +1,12 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 
-const DEFAULT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB, matches most storage bucket configs
+// Fallback only — every current caller (Instrument/Event/Gallery/Site-asset
+// forms) passes its own bucket-specific maxSizeBytes from
+// IMAGE_UPLOAD_LIMITS. This covers any future caller that forgets to.
+const DEFAULT_MAX_FILE_SIZE = IMAGE_UPLOAD_LIMITS.siteAsset;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 interface ImageUploadFieldProps {
@@ -17,7 +21,7 @@ interface ImageUploadFieldProps {
   uploadProgress: number | null;
   disabled?: boolean;
   error?: string | null;
-  /** Overrides the 5MB default — gallery covers allow up to 8MB. */
+  /** Overrides the default — pass the bucket-specific value from IMAGE_UPLOAD_LIMITS. */
   maxSizeBytes?: number;
 }
 

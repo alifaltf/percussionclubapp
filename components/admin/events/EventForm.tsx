@@ -6,6 +6,7 @@ import FormField from "@/components/ui/FormField";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import { CalendarIcon } from "@/components/ui/icons";
 import { uploadEventBanner } from "@/lib/supabase/storage";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 import { EVENT_STATUSES, EVENT_STATUS_LABELS, type Event } from "@/types/event";
 import type { EventFormState } from "@/app/admin/events/actions";
 
@@ -95,6 +96,7 @@ export default function EventForm({ mode, event, action }: EventFormProps) {
         uploadProgress={uploadProgress}
         disabled={busy}
         error={uploadError}
+        maxSizeBytes={IMAGE_UPLOAD_LIMITS.event}
       />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

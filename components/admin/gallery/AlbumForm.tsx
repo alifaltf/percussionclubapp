@@ -1,17 +1,17 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import FormField from "@/components/ui/FormField";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import { GalleryIcon } from "@/components/ui/icons";
 import { uploadGalleryImage } from "@/lib/supabase/storage";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 import { GALLERY_ALBUM_STATUSES, GALLERY_ALBUM_STATUS_LABELS } from "@/types/gallery";
 import type { GalleryAlbumWithMeta } from "@/types/gallery";
 import type { AlbumFormState } from "@/app/admin/gallery/actions";
 
 const INITIAL_STATE: AlbumFormState = { status: "idle", message: null };
-const GALLERY_COVER_MAX_BYTES = 8 * 1024 * 1024;
 
 const FIELD_CLASSES =
   "mt-1.5 w-full rounded-sm border border-[#E8E8E8] px-3 py-2 text-sm text-[#111111] focus:border-[#C8A928] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#F8F8F6] disabled:text-[#666666]";
@@ -83,7 +83,16 @@ export default function AlbumForm({ mode, album, events, action }: AlbumFormProp
       formData.set("wasPublished", String(album.status === "published"));
     }
 
-    formAction(formData);
+    // useActionState's dispatch (formAction) is only safe to invoke two ways:
+    // as a form action/formAction prop (which React wraps in a transition
+    // automatically), or manually inside startTransition. Calling it bare
+    // after the async cover-upload step triggers "An async function with
+    // useActionState was called outside of a transition" and leaves
+    // isSubmitting/pending state unreliable. This is the same fix already
+    // applied to InstrumentForm.tsx, ReturnForm.tsx and EventForm.tsx.
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   return (
@@ -99,7 +108,7 @@ export default function AlbumForm({ mode, album, events, action }: AlbumFormProp
         uploadProgress={uploadProgress}
         disabled={busy}
         error={uploadError}
-        maxSizeBytes={GALLERY_COVER_MAX_BYTES}
+        maxSizeBytes={IMAGE_UPLOAD_LIMITS.gallery}
       />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

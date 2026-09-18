@@ -400,7 +400,17 @@ export async function updateGalleryImage(
   return { status: "success", message: "Image details saved." };
 }
 
-/** Removes a gallery image's DB row and its storage object. */
+/**
+ * Removes a gallery image's DB row and its storage object.
+ *
+ * If this image is currently the album's cover, the album's
+ * `cover_image_url` is cleared to null *before* the image itself is
+ * removed, so the album can never end up pointing at an already-deleted
+ * file. We deliberately clear to null rather than auto-selecting another
+ * image as the new cover — a missing cover is safe and predictable to
+ * render; a broken one isn't, and picking a replacement is an editorial
+ * decision that belongs to an admin, not this cleanup path.
+ */
 export async function deleteGalleryImage(imageId: string): Promise<GalleryActionResult> {
   try {
     await assertAdmin();
@@ -412,7 +422,7 @@ export async function deleteGalleryImage(imageId: string): Promise<GalleryAction
 
   const { data: image, error: fetchError } = await supabase
     .from("gallery_images")
-    .select("storage_path, album_id")
+    .select("id, album_id, image_url, storage_path")
     .eq("id", imageId)
     .maybeSingle();
 
@@ -420,9 +430,38 @@ export async function deleteGalleryImage(imageId: string): Promise<GalleryAction
     return { status: "error", message: "Could not find this image." };
   }
 
-  // Remove the database row first — if storage removal below fails, the
-  // result is an orphaned (harmless) file rather than a gallery row
-  // pointing at nothing.
+  const { data: album, error: albumFetchError } = await supabase
+    .from("gallery_albums")
+    .select("cover_image_url, slug")
+    .eq("id", image.album_id)
+    .maybeSingle();
+
+  if (albumFetchError) {
+    return { status: "error", message: "Could not remove this image. Please try again." };
+  }
+
+  const isCurrentCover = Boolean(album && album.cover_image_url === image.image_url);
+
+  if (isCurrentCover) {
+    const { error: clearCoverError } = await supabase
+      .from("gallery_albums")
+      .update({ cover_image_url: null, updated_at: new Date().toISOString() })
+      .eq("id", image.album_id);
+
+    if (clearCoverError) {
+      // Abort entirely — deleting the image now would leave the album
+      // pointing at a file that no longer exists, which is exactly the bug
+      // this ordering exists to prevent.
+      return { status: "error", message: "Could not remove this image. Please try again." };
+    }
+  }
+
+  // Remove the database row next — if storage removal below fails, the
+  // result is an orphaned (harmless) file rather than a gallery row (or an
+  // album cover) pointing at nothing. If this delete fails after the cover
+  // was already cleared above, the album is left with no cover rather than
+  // a broken one — an acceptable, temporary state, and safer than trying to
+  // restore a reference to an image whose deletion we couldn't confirm.
   const { error: deleteError } = await supabase.from("gallery_images").delete().eq("id", imageId);
 
   if (deleteError) {
@@ -433,7 +472,7 @@ export async function deleteGalleryImage(imageId: string): Promise<GalleryAction
     await supabase.storage.from(GALLERY_IMAGES_BUCKET).remove([image.storage_path]);
   }
 
-  revalidateGallery(image.album_id);
+  revalidateGallery(image.album_id, album?.slug);
   return { status: "success", message: "Image removed." };
 }
 

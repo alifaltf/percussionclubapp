@@ -6,6 +6,7 @@ import FormField from "@/components/ui/FormField";
 import ImageUploadField from "@/components/ui/ImageUploadField";
 import { InstrumentIcon } from "@/components/ui/icons";
 import { uploadInstrumentImage } from "@/lib/supabase/storage";
+import { IMAGE_UPLOAD_LIMITS } from "@/lib/upload-limits";
 import {
   CONDITION_LABELS,
   INSTRUMENT_CONDITIONS,
@@ -124,6 +125,7 @@ export default function InstrumentForm({ mode, instrument, action }: InstrumentF
         uploadProgress={uploadProgress}
         disabled={busy}
         error={uploadError}
+        maxSizeBytes={IMAGE_UPLOAD_LIMITS.instrument}
       />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
