@@ -6,8 +6,9 @@ import ConditionBadge from "@/components/instruments/ConditionBadge";
 import ArchiveStateBadge from "@/components/admin/instruments/ArchiveStateBadge";
 import ArchiveInstrumentButton from "@/components/admin/instruments/ArchiveInstrumentButton";
 import BorrowStatusBadge from "@/components/borrowings/BorrowStatusBadge";
+import RepairBorrowedStatusButton from "@/components/admin/instruments/RepairBorrowedStatusButton";
 import EmptyState from "@/components/ui/EmptyState";
-import { SwapIcon } from "@/components/ui/icons";
+import { AlertTriangleIcon, SwapIcon } from "@/components/ui/icons";
 import { getInitials } from "@/utils/get-initials";
 import { requireAdmin } from "@/lib/supabase/require-admin";
 import { getInstrumentByIdForAdmin } from "@/lib/supabase/instruments";
@@ -63,6 +64,15 @@ export default async function AdminInstrumentDetailPage({
   }
 
   const isArchived = Boolean(instrument.archived_at);
+
+  // Case D: raw status is "borrowed" but there's no pending or open
+  // borrowing record behind it at all — a data inconsistency, not a real
+  // borrowing. Only this case exposes the repair action; a merely-pending
+  // request (case B) or a legitimate current borrowing (case C) never do,
+  // and neither does a load error, since we can't confirm the inconsistency
+  // is real without having successfully checked for a borrowing record.
+  const isInconsistentBorrowed =
+    instrument.status === "borrowed" && !borrowingLoadError && summary === null;
 
   return (
     <main className="flex flex-1 flex-col bg-[#F8F8F6] px-6 py-16 sm:py-20">
@@ -187,7 +197,11 @@ export default async function AdminInstrumentDetailPage({
 
         <div className="mt-8">
           <h2 className="font-serif text-xl font-semibold text-[#111111]">
-            {summary?.kind === "pending" ? "Pending Request" : "Current Borrowing"}
+            {isInconsistentBorrowed
+              ? "Borrowing Status Issue"
+              : summary?.kind === "pending"
+                ? "Pending Request"
+                : "Current Borrowing"}
           </h2>
 
           <div className="mt-4">
@@ -197,6 +211,27 @@ export default async function AdminInstrumentDetailPage({
                 title="Couldn't load borrowing status"
                 description="Something went wrong while checking this instrument's borrowing state. Please try again."
               />
+            ) : isInconsistentBorrowed ? (
+              <div className="rounded-sm border border-amber-300 bg-amber-50 p-4">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-amber-800">
+                  <AlertTriangleIcon className="h-4 w-4" />
+                  Inconsistent Borrowing State
+                </p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Instrument is marked as borrowed, but no active borrowing record exists.
+                </p>
+                <p className="mt-1 text-sm text-[#666666]">
+                  This can happen if the underlying data was changed outside the normal
+                  borrowing workflow. Editing this instrument won&apos;t fix its status — use
+                  the action below only once you&apos;ve confirmed it isn&apos;t actually out on
+                  loan.
+                </p>
+                <RepairBorrowedStatusButton
+                  instrumentId={instrument.id}
+                  instrumentName={instrument.name}
+                  className="mt-4"
+                />
+              </div>
             ) : summary ? (
               <div className="rounded-2xl border border-[#E8E8E8] bg-white p-6">
                 {summary.kind === "pending" && (

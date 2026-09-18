@@ -12,7 +12,7 @@ import {
 import {
   INSTRUMENT_CODE_PATTERN,
   INSTRUMENT_CONDITIONS,
-  INSTRUMENT_STATUSES,
+  MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES,
   type InstrumentCondition,
   type InstrumentStatus,
 } from "@/types/instrument";
@@ -74,13 +74,44 @@ function validateFields(fields: ReturnType<typeof readInstrumentFields>): string
   if (!fields.category) {
     return "Category is required.";
   }
-  if (!INSTRUMENT_STATUSES.includes(fields.status as InstrumentStatus)) {
-    return "Please choose a valid status.";
-  }
   if (!INSTRUMENT_CONDITIONS.includes(fields.condition as InstrumentCondition)) {
     return "Please choose a valid condition.";
   }
   return null;
+}
+
+/**
+ * Whether a submitted status is one createInstrument/updateInstrument may
+ * actually write. This is deliberately stricter than "is it a member of
+ * InstrumentStatus" — it's the server-side half of keeping "borrowed" and
+ * "pending" out of normal instrument lifecycle management, independent of
+ * whatever InstrumentForm does or doesn't offer in its dropdown:
+ *
+ * - Any of the normal MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES is always
+ *   fine.
+ * - "pending" is tolerated ONLY when the row's current DB status is already
+ *   "pending" — that's a legacy value with no workflow behind it, and an
+ *   admin editing such a row without touching Status must not have it
+ *   silently rewritten just because the form loaded (see InstrumentForm's
+ *   "(legacy)" option). It's still never a value that can be newly assigned
+ *   to a row that isn't already pending.
+ * - "borrowed" is never a valid target here at all — it's exclusively
+ *   owned by the borrowing workflow's approve/return RPCs. (updateInstrument
+ *   handles an already-borrowed instrument separately, by preserving its
+ *   current status outright rather than calling this — see hasOpenBorrowing
+ *   there.)
+ *
+ * currentStatus is null for createInstrument, where there is no existing
+ * row and therefore no legacy-pending exception.
+ */
+function isAssignableInstrumentStatus(
+  status: string,
+  currentStatus: InstrumentStatus | null,
+): boolean {
+  if (MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES.includes(status as InstrumentStatus)) {
+    return true;
+  }
+  return status === "pending" && currentStatus === "pending";
 }
 
 export async function createInstrument(
@@ -97,6 +128,17 @@ export async function createInstrument(
   const validationError = validateFields(fields);
   if (validationError) {
     return { status: "error", message: validationError };
+  }
+
+  // A brand-new instrument has no existing row, so there's no legacy-pending
+  // exception here — only the normal manually assignable statuses are ever
+  // valid on create. This rejects a hand-crafted request that bypasses
+  // InstrumentForm's dropdown and tries to submit "borrowed" or "pending"
+  // directly, with the same validation-error structure as any other bad
+  // field, rather than silently creating the instrument with some other
+  // status instead.
+  if (!isAssignableInstrumentStatus(fields.status, null)) {
+    return { status: "error", message: "Please choose a valid status." };
   }
 
   const supabase = await createClient();
@@ -173,16 +215,39 @@ export async function updateInstrument(
   const hasOpenBorrowing =
     currentStatus === "borrowed" || (await instrumentHasActiveBorrowing(id));
 
+  // Two distinct rules, in priority order:
+  //  1. While an open borrowing exists (raw status "borrowed", including an
+  //     inconsistent legacy row with no matching request — or a live
+  //     active/return_submitted/overdue request), the borrowing workflow
+  //     owns this instrument's status. Whatever was submitted is ignored
+  //     and the server-verified current status is kept, silently — this is
+  //     the existing protection, and it's deliberately NOT a validation
+  //     error, so unrelated metadata (name/description/notes/image/etc.)
+  //     still saves normally. Fixing an inconsistent legacy "borrowed" row
+  //     is a separate, explicit repair action (repairFalseBorrowedStatus),
+  //     not something a normal edit can do.
+  //  2. Otherwise, the submitted status must be one of the normal manually
+  //     assignable statuses (or, for a legacy-pending row, "pending" left
+  //     unchanged) — a hand-crafted request trying to move a normal
+  //     instrument INTO "borrowed" or "pending" is rejected outright, the
+  //     same way any other invalid field would be, rather than silently
+  //     ignored or coerced to something else.
+  let nextStatus: InstrumentStatus;
+  if (hasOpenBorrowing) {
+    nextStatus = currentStatus;
+  } else {
+    if (!isAssignableInstrumentStatus(fields.status, currentStatus)) {
+      return { status: "error", message: "Please choose a valid status." };
+    }
+    nextStatus = fields.status as InstrumentStatus;
+  }
+
   const updatePayload: Record<string, unknown> = {
     instrument_code: fields.instrumentCode,
     name: fields.name,
     category: fields.category,
     description: fields.description,
-    // Preserve the server-verified current status untouched while an open
-    // borrowing exists, regardless of what was submitted; otherwise apply
-    // the submitted value normally. All other fields above and below still
-    // save normally either way.
-    status: hasOpenBorrowing ? currentStatus : fields.status,
+    status: nextStatus,
     condition: fields.condition,
     purchase_date: fields.purchaseDate,
     notes: fields.notes,
@@ -219,6 +284,88 @@ export async function updateInstrument(
   revalidatePath("/instruments");
   revalidatePath(`/instruments/${id}`);
   redirect("/admin/instruments");
+}
+
+/**
+ * Admin-only repair for a data-inconsistent instrument: raw status is
+ * "borrowed" but there is no matching active/return_submitted/overdue
+ * borrow request behind it (see Instrument Management verification report,
+ * case F). Normal instrument editing deliberately can't touch this — see
+ * hasOpenBorrowing in updateInstrument, which locks status untouched
+ * whenever it's "borrowed" regardless of whether a real borrowing exists.
+ * This is the one explicit, narrow path back to "available" for that
+ * specific inconsistency; it never touches borrow_requests (no borrowing
+ * history is modified) and never calls a borrowing RPC, since there's no
+ * real borrowing here to complete or cancel — just a stray status value.
+ *
+ * Every check is re-verified from the database immediately before writing
+ * (never trusting whatever the detail page had loaded when the admin
+ * clicked the button), and the write itself is conditioned on status still
+ * being "borrowed" at the moment of the UPDATE, so a request approved in
+ * the gap between the check and the write can't be silently clobbered —
+ * the update affects zero rows in that case and is reported as a failure
+ * rather than a false success.
+ */
+export async function repairFalseBorrowedStatus(id: string): Promise<InstrumentActionResult> {
+  try {
+    await assertAdmin();
+  } catch {
+    return { status: "error", message: "You must be an admin to perform this action." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: currentInstrument, error: currentInstrumentError } = await supabase
+    .from("instruments")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (currentInstrumentError || !currentInstrument) {
+    return { status: "error", message: "Could not load this instrument. Please try again." };
+  }
+
+  if (currentInstrument.status !== "borrowed") {
+    return {
+      status: "error",
+      message: "This instrument is no longer marked as borrowed — there's nothing to repair.",
+    };
+  }
+
+  if (await instrumentHasActiveBorrowing(id)) {
+    return {
+      status: "error",
+      message:
+        "This instrument now has an active borrowing record, so its status isn't actually inconsistent — it can't be reset here.",
+    };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("instruments")
+    .update({ status: "available", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("status", "borrowed")
+    .select("id");
+
+  if (error) {
+    return { status: "error", message: "Could not reset this instrument's status. Please try again." };
+  }
+
+  if (!updated || updated.length === 0) {
+    return {
+      status: "error",
+      message:
+        "This instrument's status changed just before the reset could be applied. Please refresh and try again.",
+    };
+  }
+
+  revalidatePath("/admin/instruments");
+  revalidatePath(`/admin/instruments/${id}`);
+  revalidatePath(`/admin/instruments/${id}/edit`);
+  revalidatePath("/instruments");
+  revalidatePath(`/instruments/${id}`);
+
+  return { status: "success", message: "Status reset to Available." };
 }
 
 export async function archiveInstrument(id: string): Promise<InstrumentActionResult> {

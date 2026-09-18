@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import FormField from "@/components/ui/FormField";
 import ImageUploadField from "@/components/ui/ImageUploadField";
@@ -9,7 +9,7 @@ import { uploadInstrumentImage } from "@/lib/supabase/storage";
 import {
   CONDITION_LABELS,
   INSTRUMENT_CONDITIONS,
-  INSTRUMENT_STATUSES,
+  MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES,
   STATUS_LABELS,
   type Instrument,
   type InstrumentStatus,
@@ -18,20 +18,17 @@ import type { InstrumentFormState } from "@/app/admin/instruments/actions";
 
 const INITIAL_STATE: InstrumentFormState = { status: "idle", message: null };
 
-// "pending" is a defined InstrumentStatus with no workflow behind it — no
-// code path ever assigns it, and the return flow explicitly excludes it as
-// an outcome. "borrowed" is excluded for a different reason: it's a status
-// the borrowing workflow owns — the approve-request RPC is what moves an
-// instrument to "borrowed", and the return workflow is what moves it away.
-// Manually selecting "borrowed" here would create a false borrowed state
-// with no real borrow request behind it, so it's not a normal, manually
-// assignable status on this form (see the locked read-only display below
-// for an instrument that's already borrowed). Both are deliberately left
-// out of the selectable options so new instruments and status changes can
-// never introduce them through this form.
-const SELECTABLE_STATUSES: InstrumentStatus[] = INSTRUMENT_STATUSES.filter(
-  (status) => status !== "pending" && status !== "borrowed",
-);
+// The manually assignable status list is shared with the server (see
+// MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES in types/instrument.ts) so this
+// form's dropdown and app/admin/instruments/actions.ts's validation can
+// never drift apart. "pending" is a dead legacy value with no workflow
+// behind it; "borrowed" is owned by the borrowing workflow (the
+// approve-request RPC is what moves an instrument to "borrowed", and the
+// return workflow is what moves it away) — manually selecting either here
+// would create a status the server no longer accepts anyway (see the
+// locked read-only display below for an instrument that's already
+// borrowed).
+const SELECTABLE_STATUSES = MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES;
 
 /**
  * The options shown in the Status select. Always excludes "pending" and
@@ -102,7 +99,19 @@ export default function InstrumentForm({ mode, instrument, action }: InstrumentF
       formData.set("currentImageUrl", instrument.image_url ?? "");
     }
 
-    formAction(formData);
+    // The image upload above has to finish first (it needs to land the
+    // final imageUrl into formData before the action ever sees it), so this
+    // can't just be the form's native action/formAction prop — we need our
+    // own onSubmit to run that async step. But useActionState's dispatch
+    // (formAction) is only safe to invoke two ways: as a form action/
+    // formAction prop (which React wraps in a transition automatically), or
+    // manually inside startTransition. Calling it bare, as before, triggers
+    // "An async function with useActionState was called outside of a
+    // transition" and leaves isSubmitting/pending state unreliable. This is
+    // the smallest fix that keeps the custom upload step intact.
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   return (

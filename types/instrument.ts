@@ -38,6 +38,21 @@ export const INSTRUMENT_STATUSES: InstrumentStatus[] = [
   "maintenance",
 ];
 
+/**
+ * The subset of InstrumentStatus an admin may manually assign through the
+ * instrument Create/Edit form (and the server actions behind it) —
+ * everything except "pending" (a dead legacy value with no workflow behind
+ * it) and "borrowed" (owned exclusively by the borrowing workflow: the
+ * approve-request RPC is what moves an instrument to "borrowed", and the
+ * return workflow is what moves it away). This is the single source of
+ * truth for both the UI (components/admin/instruments/InstrumentForm.tsx)
+ * and the server-side validation (app/admin/instruments/actions.ts) so the
+ * two can never drift apart.
+ */
+export const MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES: InstrumentStatus[] = INSTRUMENT_STATUSES.filter(
+  (status) => status !== "pending" && status !== "borrowed",
+);
+
 export const INSTRUMENT_CONDITIONS: InstrumentCondition[] = [
   "excellent",
   "good",
