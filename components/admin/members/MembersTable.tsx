@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHeadCell, TableHeader, TableRow } from "@/components/ui/Table";
 import Badge from "@/components/ui/Badge";
+import MemberAvatar from "@/components/admin/members/MemberAvatar";
 import MemberRoleControl, { RoleBadge } from "@/components/admin/members/MemberRoleControl";
 import type { Member } from "@/lib/supabase/profiles";
 
@@ -26,7 +28,9 @@ export default function MembersTable({ members, currentUserId }: MembersTablePro
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHeadCell className="w-12" />
               <TableHeadCell>Full Name</TableHeadCell>
+              <TableHeadCell>Phone</TableHeadCell>
               <TableHeadCell>Role</TableHeadCell>
               <TableHeadCell>Joined</TableHeadCell>
               <TableHeadCell className="text-right">Actions</TableHeadCell>
@@ -38,11 +42,20 @@ export default function MembersTable({ members, currentUserId }: MembersTablePro
               return (
                 <TableRow key={member.id}>
                   <TableCell>
-                    <p className="flex items-center gap-1.5 font-medium text-[#111111]">
-                      {member.full_name || "Unnamed member"}
+                    <MemberAvatar avatarUrl={member.avatar_url} name={member.full_name || "Member"} />
+                  </TableCell>
+                  <TableCell>
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <Link
+                        href={`/admin/members/${member.id}`}
+                        className="text-[#111111] transition-colors duration-300 hover:text-[#C8A928]"
+                      >
+                        {member.full_name || "Unnamed member"}
+                      </Link>
                       {isCurrentUser && <Badge>You</Badge>}
                     </p>
                   </TableCell>
+                  <TableCell className="text-[#666666]">{member.phone || "—"}</TableCell>
                   <TableCell>
                     <RoleBadge role={member.role} />
                   </TableCell>
@@ -70,13 +83,24 @@ export default function MembersTable({ members, currentUserId }: MembersTablePro
           const isCurrentUser = member.id === currentUserId;
           return (
             <div key={member.id} className="rounded-2xl border border-[#E8E8E8] bg-white p-4">
-              <p className="flex flex-wrap items-center gap-1.5 font-serif text-base font-semibold text-[#111111]">
-                {member.full_name || "Unnamed member"}
-                {isCurrentUser && <Badge>You</Badge>}
-              </p>
-              <p className="mt-2 text-xs text-[#666666]">
-                Joined {formatJoinedDate(member.created_at)}
-              </p>
+              <div className="flex items-start gap-3">
+                <MemberAvatar avatarUrl={member.avatar_url} name={member.full_name || "Member"} />
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-1.5 font-serif text-base font-semibold">
+                    <Link
+                      href={`/admin/members/${member.id}`}
+                      className="text-[#111111] transition-colors duration-300 hover:text-[#C8A928]"
+                    >
+                      {member.full_name || "Unnamed member"}
+                    </Link>
+                    {isCurrentUser && <Badge>You</Badge>}
+                  </p>
+                  {member.phone && <p className="mt-0.5 text-xs text-[#666666]">{member.phone}</p>}
+                  <p className="mt-1 text-xs text-[#666666]">
+                    Joined {formatJoinedDate(member.created_at)}
+                  </p>
+                </div>
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <RoleBadge role={member.role} />
               </div>

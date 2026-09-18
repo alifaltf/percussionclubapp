@@ -320,6 +320,37 @@ export async function getAdminBorrowRequestById(
 }
 
 /**
+ * All of a specific member's borrow requests (any status), newest first —
+ * powers the admin member detail page's borrowing counts and history.
+ * Admin-scoped counterpart to getMyRequests: that function scopes to the
+ * signed-in user via their own session, while this one takes an arbitrary
+ * member id, since only an admin should be able to look up someone else's
+ * requests. Callers must already be admin-gated (see requireAdmin() in the
+ * page) — this function does not check that itself, matching
+ * getAdminBorrowRequestById and getOpenBorrowRequestForInstrument. Not
+ * paginated, matching getMyRequests/getMyBorrowings's "full history" shape
+ * — fine at this app's current member/request volume.
+ */
+export async function getAdminBorrowRequestsForMember(
+  memberId: string,
+): Promise<BorrowRequestAdminView[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("borrow_requests")
+    .select(REQUEST_COLUMNS_ADMIN)
+    .eq("member_id", memberId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    if (error.code === INVALID_TEXT_REPRESENTATION) return [];
+    throw new Error("Could not load this member's borrow requests.");
+  }
+
+  return withEffectiveStatuses((data as unknown as BorrowRequestAdminView[] | null) ?? []);
+}
+
+/**
  * Counts for the admin requests queue header and the admin dashboard.
  * Counts are keyed by *effective* status, so `active` here means "still
  * out, not yet overdue" and `overdue` is broken out separately — callers

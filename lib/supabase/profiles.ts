@@ -1,10 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/types/profile";
 
+// Postgres error code for a malformed literal passed to a typed column
+// (e.g. an id in the URL that isn't a valid UUID) — mirrors the pattern
+// already used in lib/supabase/instruments.ts and lib/supabase/borrow-requests.ts.
+const INVALID_TEXT_REPRESENTATION = "22P02";
+
 export interface Member {
   id: string;
   full_name: string | null;
   role: UserRole;
+  avatar_url: string | null;
+  phone: string | null;
   created_at: string;
 }
 
@@ -20,7 +27,7 @@ export async function getAllMembers(): Promise<Member[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, role, created_at")
+    .select("id, full_name, role, avatar_url, phone, created_at")
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -28,6 +35,45 @@ export async function getAllMembers(): Promise<Member[]> {
   }
 
   return data ?? [];
+}
+
+export interface MemberProfile {
+  id: string;
+  full_name: string | null;
+  role: UserRole;
+  avatar_url: string | null;
+  phone: string | null;
+  created_at: string;
+}
+
+/**
+ * A single member's profile for the admin member detail page
+ * (/admin/members/[id]). Admin-only — relies on the same "Admins can view
+ * all profiles" RLS SELECT policy as getAllMembers above; this must never
+ * be imported from member-facing code, since it can return any member's
+ * row, not just the caller's own. `profiles` has no email column (email
+ * lives only in auth.users), so it is deliberately not selected here —
+ * this app does not introduce a service-role auth.users lookup just to
+ * surface email in the admin UI. Returns null both when the row genuinely
+ * doesn't exist and when `id` isn't a valid UUID at all, matching
+ * getInstrumentById's convention.
+ */
+export async function getMemberById(id: string): Promise<MemberProfile | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, avatar_url, phone, created_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === INVALID_TEXT_REPRESENTATION) {
+      return null;
+    }
+    throw new Error("Could not load this member.");
+  }
+
+  return (data as MemberProfile | null) ?? null;
 }
 
 /**
