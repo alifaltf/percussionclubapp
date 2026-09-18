@@ -12,10 +12,46 @@ import {
   INSTRUMENT_STATUSES,
   STATUS_LABELS,
   type Instrument,
+  type InstrumentStatus,
 } from "@/types/instrument";
 import type { InstrumentFormState } from "@/app/admin/instruments/actions";
 
 const INITIAL_STATE: InstrumentFormState = { status: "idle", message: null };
+
+// "pending" is a defined InstrumentStatus with no workflow behind it — no
+// code path ever assigns it, and the return flow explicitly excludes it as
+// an outcome. "borrowed" is excluded for a different reason: it's a status
+// the borrowing workflow owns — the approve-request RPC is what moves an
+// instrument to "borrowed", and the return workflow is what moves it away.
+// Manually selecting "borrowed" here would create a false borrowed state
+// with no real borrow request behind it, so it's not a normal, manually
+// assignable status on this form (see the locked read-only display below
+// for an instrument that's already borrowed). Both are deliberately left
+// out of the selectable options so new instruments and status changes can
+// never introduce them through this form.
+const SELECTABLE_STATUSES: InstrumentStatus[] = INSTRUMENT_STATUSES.filter(
+  (status) => status !== "pending" && status !== "borrowed",
+);
+
+/**
+ * The options shown in the Status select. Always excludes "pending" and
+ * "borrowed" — except when the instrument being edited already has a status
+ * outside that normal list (a legacy "pending" row, or an inconsistent
+ * legacy "borrowed" row with no real borrowing behind it), in which case
+ * that value is kept as the sole extra option so the field still renders
+ * the instrument's real value instead of silently defaulting to something
+ * else on save. This only matters for pre-existing rows; new instruments
+ * can never end up with either value through this form. Note: a *normal*,
+ * consistent "borrowed" instrument never reaches this function at all — see
+ * isLockedByBorrowing below, which replaces the select entirely for that
+ * case.
+ */
+function statusOptions(currentStatus: InstrumentStatus | undefined): InstrumentStatus[] {
+  if (currentStatus && !SELECTABLE_STATUSES.includes(currentStatus)) {
+    return [currentStatus, ...SELECTABLE_STATUSES];
+  }
+  return SELECTABLE_STATUSES;
+}
 
 const FIELD_CLASSES =
   "mt-1.5 w-full rounded-sm border border-[#E8E8E8] px-3 py-2 text-sm text-[#111111] focus:border-[#C8A928] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#F8F8F6] disabled:text-[#666666]";
@@ -35,6 +71,11 @@ export default function InstrumentForm({ mode, instrument, action }: InstrumentF
   const [isUploading, setIsUploading] = useState(false);
 
   const busy = isUploading || isSubmitting;
+  // A consistent "borrowed" instrument is never manually editable here — its
+  // status is owned by the borrowing workflow (approve/return). This is
+  // UI-level messaging only; the server independently enforces the same
+  // rule in updateInstrument regardless of what a submitted form contains.
+  const isLockedByBorrowing = mode === "edit" && instrument?.status === "borrowed";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,19 +144,41 @@ export default function InstrumentForm({ mode, instrument, action }: InstrumentF
           <label htmlFor="status" className={LABEL_CLASSES}>
             Status
           </label>
-          <select
-            id="status"
-            name="status"
-            defaultValue={instrument?.status ?? "available"}
-            disabled={busy}
-            className={FIELD_CLASSES}
-          >
-            {INSTRUMENT_STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {STATUS_LABELS[value]}
-              </option>
-            ))}
-          </select>
+          {isLockedByBorrowing ? (
+            <>
+              {/* Preserve the real value on submit without presenting an
+                  editable control — the server treats "borrowed" as
+                  authoritative here regardless of this hidden input, but
+                  keeping it consistent avoids relying on that alone. */}
+              <input type="hidden" name="status" value="borrowed" />
+              <div
+                id="status"
+                className={`${FIELD_CLASSES} flex cursor-not-allowed items-center bg-[#F8F8F6] text-[#666666]`}
+              >
+                {STATUS_LABELS.borrowed}
+              </div>
+              <p className="mt-1.5 text-xs text-[#666666]">
+                Controlled by the Borrow Requests workflow while this instrument is on loan —
+                approve its return there to change this.
+              </p>
+            </>
+          ) : (
+            <select
+              id="status"
+              name="status"
+              defaultValue={instrument?.status ?? "available"}
+              disabled={busy}
+              className={FIELD_CLASSES}
+            >
+              {statusOptions(instrument?.status).map((value) => (
+                <option key={value} value={value}>
+                  {value === "pending" || value === "borrowed"
+                    ? `${STATUS_LABELS[value]} (legacy)`
+                    : STATUS_LABELS[value]}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div>
           <label htmlFor="condition" className={LABEL_CLASSES}>

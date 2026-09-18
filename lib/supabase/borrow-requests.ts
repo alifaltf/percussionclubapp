@@ -157,6 +157,60 @@ export async function getMyOpenRequestForInstrument(
   return row ? withEffectiveStatus(row) : null;
 }
 
+/**
+ * The instrument's current non-terminal borrow request, if any (pending,
+ * active, return_submitted or overdue), with the borrowing member attached
+ * — admin-scoped counterpart to getMyOpenRequestForInstrument, and named to
+ * match it rather than "getCurrentBorrowingForInstrument": a "pending" row
+ * here is a request awaiting review that hasn't been approved yet, so the
+ * instrument isn't actually borrowed — calling that a "current borrowing"
+ * would be wrong. The returned `kind` tells the caller which case it got:
+ * "pending" (awaiting review, instrument hasn't left yet) or "current"
+ * (active, return_submitted or overdue — it's actually out right now).
+ * Used by the admin instrument detail page to show "who has this right
+ * now" without duplicating the Borrow Requests module; the page links out
+ * to the full request (/admin/requests/[id]) for anything beyond this
+ * summary. Callers must already be admin-gated (see requireAdmin() in the
+ * page) — this function does not check that itself, matching
+ * getAdminBorrowRequestById. There can only ever be one such row per
+ * instrument (submit_borrow_request rejects a new request while the
+ * instrument isn't available), but this still orders/limits defensively
+ * rather than assuming that invariant holds.
+ */
+export interface InstrumentBorrowingSummary {
+  kind: "pending" | "current";
+  request: BorrowRequestAdminView;
+}
+
+export async function getOpenBorrowRequestForInstrument(
+  instrumentId: string,
+): Promise<InstrumentBorrowingSummary | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("borrow_requests")
+    .select(REQUEST_COLUMNS_ADMIN)
+    .eq("instrument_id", instrumentId)
+    .in("status", ["pending", ...ACTIVE_BORROW_STATUSES])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === INVALID_TEXT_REPRESENTATION) return null;
+    throw new Error("Could not load the open borrow request for this instrument.");
+  }
+
+  const row = (data as unknown as BorrowRequestAdminView | null) ?? null;
+  if (!row) return null;
+
+  const request = withEffectiveStatus(row);
+  return {
+    kind: request.status === "pending" ? "pending" : "current",
+    request,
+  };
+}
+
 export interface AdminBorrowRequestsQuery {
   search?: string;
   status?: BorrowRequestStatus | "all";
@@ -450,6 +504,35 @@ export async function instrumentHasOpenBorrowRequest(instrumentId: string): Prom
   if (error) {
     // Fail closed: if we can't verify, don't allow the archive to proceed
     // silently — the caller should treat this as "can't confirm, blocked".
+    return true;
+  }
+
+  return (count ?? 0) > 0;
+}
+
+/**
+ * Whether an instrument currently has an open *active* borrowing — status
+ * active, return_submitted or overdue (ACTIVE_BORROW_STATUSES) — as opposed
+ * to a merely pending request that hasn't been approved yet. Narrower than
+ * instrumentHasOpenBorrowRequest, which also counts "pending" (the right
+ * bar for blocking an archive); a normal instrument edit shouldn't be
+ * blocked from changing status just because someone has an unapproved
+ * request in, but it must never be allowed to override a status the
+ * borrowing workflow itself owns while a loan is actually in progress. Used
+ * by updateInstrument to decide whether a submitted status change may be
+ * applied.
+ */
+export async function instrumentHasActiveBorrowing(instrumentId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("borrow_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("instrument_id", instrumentId)
+    .in("status", ACTIVE_BORROW_STATUSES);
+
+  if (error) {
+    // Fail closed: if we can't verify, don't let a status change slip
+    // through — treat it as if an active borrowing exists.
     return true;
   }
 

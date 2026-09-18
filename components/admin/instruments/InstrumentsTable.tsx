@@ -141,7 +141,14 @@ export default function InstrumentsTable({ instruments }: InstrumentsTableProps)
                   <TableCell className="font-medium text-[#C8A928]">
                     {instrument.instrument_code}
                   </TableCell>
-                  <TableCell>{instrument.name}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/admin/instruments/${instrument.id}`}
+                      className="font-medium text-[#111111] transition-colors duration-300 hover:text-[#C8A928]"
+                    >
+                      {instrument.name}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-[#666666]">{instrument.category}</TableCell>
                   <TableCell>
                     <StatusBadge status={instrument.status} />

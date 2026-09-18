@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getStoragePathFromPublicUrl } from "@/lib/supabase/storage";
-import { instrumentHasOpenBorrowRequest } from "@/lib/supabase/borrow-requests";
+import {
+  instrumentHasActiveBorrowing,
+  instrumentHasOpenBorrowRequest,
+} from "@/lib/supabase/borrow-requests";
 import {
   INSTRUMENT_CODE_PATTERN,
   INSTRUMENT_CONDITIONS,
@@ -141,12 +144,45 @@ export async function updateInstrument(
   const currentImageUrl = String(formData.get("currentImageUrl") ?? "");
 
   const supabase = await createClient();
+
+  // Load the instrument's current status straight from the database (never
+  // trust the client for this) so we can tell whether it's in an open
+  // borrowing lifecycle state before applying any submitted status change.
+  const { data: currentInstrument, error: currentInstrumentError } = await supabase
+    .from("instruments")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (currentInstrumentError || !currentInstrument) {
+    return { status: "error", message: "Could not load this instrument. Please try again." };
+  }
+
+  const currentStatus = currentInstrument.status as InstrumentStatus;
+
+  // An instrument is in an open borrowing lifecycle state when its own raw
+  // status is "borrowed", or it has an active/return_submitted/overdue
+  // borrow request — checking both guards against a contradiction between
+  // the two ever slipping through (e.g. a legacy row where one says
+  // "borrowed" and the other doesn't agree). While that's true, the
+  // borrowing workflow — not a normal instrument edit — owns this
+  // instrument's lifecycle status. This is enforced here, server-side, so
+  // it holds even against a hand-crafted request that bypasses the
+  // disabled/hidden UI control in InstrumentForm; the UI gating is a
+  // courtesy, not the actual guarantee.
+  const hasOpenBorrowing =
+    currentStatus === "borrowed" || (await instrumentHasActiveBorrowing(id));
+
   const updatePayload: Record<string, unknown> = {
     instrument_code: fields.instrumentCode,
     name: fields.name,
     category: fields.category,
     description: fields.description,
-    status: fields.status,
+    // Preserve the server-verified current status untouched while an open
+    // borrowing exists, regardless of what was submitted; otherwise apply
+    // the submitted value normally. All other fields above and below still
+    // save normally either way.
+    status: hasOpenBorrowing ? currentStatus : fields.status,
     condition: fields.condition,
     purchase_date: fields.purchaseDate,
     notes: fields.notes,

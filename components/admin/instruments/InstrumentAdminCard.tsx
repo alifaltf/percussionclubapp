@@ -45,9 +45,12 @@ export default function InstrumentAdminCard({
           <p className="text-xs font-semibold uppercase tracking-wide text-[#C8A928]">
             {instrument.instrument_code}
           </p>
-          <p className="truncate font-serif text-base font-semibold text-[#111111]">
+          <Link
+            href={`/admin/instruments/${instrument.id}`}
+            className="block truncate font-serif text-base font-semibold text-[#111111] transition-colors duration-300 hover:text-[#C8A928]"
+          >
             {instrument.name}
-          </p>
+          </Link>
           <p className="text-xs text-[#666666]">{instrument.category}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
