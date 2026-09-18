@@ -41,10 +41,15 @@ export async function getPublicAnnouncements(
 ): Promise<Announcement[]> {
   const { search = "", filter = "all" } = query;
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
 
   let queryBuilder = supabase
     .from("announcements")
     .select(ANNOUNCEMENT_COLUMNS)
+    .eq("status", "published")
+    .is("archived_at", null)
+    .lte("published_at", nowIso)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order("is_pinned", { ascending: false })
     .order("priority", { ascending: false })
     .order("published_at", { ascending: false });
@@ -82,11 +87,16 @@ export async function getPublicAnnouncements(
  */
 export async function getPublicAnnouncementById(id: string): Promise<Announcement | null> {
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("announcements")
     .select(ANNOUNCEMENT_COLUMNS)
     .eq("id", id)
+    .eq("status", "published")
+    .is("archived_at", null)
+    .lte("published_at", nowIso)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .maybeSingle();
 
   if (error) {
@@ -100,10 +110,15 @@ export async function getPublicAnnouncementById(id: string): Promise<Announcemen
 /** The latest 3 visible announcements for the member dashboard, pinned first. */
 export async function getLatestDashboardAnnouncements(): Promise<Announcement[]> {
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("announcements")
     .select(ANNOUNCEMENT_COLUMNS)
+    .eq("status", "published")
+    .is("archived_at", null)
+    .lte("published_at", nowIso)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order("is_pinned", { ascending: false })
     .order("priority", { ascending: false })
     .order("published_at", { ascending: false })

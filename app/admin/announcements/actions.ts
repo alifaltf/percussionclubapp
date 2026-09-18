@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
+import { parseMalaysiaDateTimeLocal } from "@/lib/date";
 import {
   ANNOUNCEMENT_PRIORITIES,
   ANNOUNCEMENT_STATUSES,
@@ -69,7 +70,35 @@ function readAnnouncementFields(formData: FormData) {
   };
 }
 
-function validateFields(fields: ReturnType<typeof readAnnouncementFields>): string | null {
+interface ParsedAnnouncementDates {
+  /** Parsed UTC instant (ISO string), or null when publishedAt was blank/invalid. */
+  publishedAt: string | null;
+  /** Parsed UTC instant (ISO string), or null when expiresAt was blank/invalid. */
+  expiresAt: string | null;
+}
+
+/**
+ * Parses the raw `publishedAt`/`expiresAt` datetime-local strings (Malaysia
+ * wall-clock time, no timezone of their own) into UTC instants exactly
+ * once, so `validateFields` and the insert/update payload built from them
+ * can never disagree about what a given input parsed to. A blank raw value
+ * stays null; a non-blank value that fails to parse also comes back null
+ * here — `validateFields` is what turns "non-blank but unparseable" into a
+ * user-facing error.
+ */
+function parseAnnouncementDates(
+  fields: ReturnType<typeof readAnnouncementFields>,
+): ParsedAnnouncementDates {
+  return {
+    publishedAt: fields.publishedAt ? parseMalaysiaDateTimeLocal(fields.publishedAt) : null,
+    expiresAt: fields.expiresAt ? parseMalaysiaDateTimeLocal(fields.expiresAt) : null,
+  };
+}
+
+function validateFields(
+  fields: ReturnType<typeof readAnnouncementFields>,
+  parsedDates: ParsedAnnouncementDates,
+): string | null {
   if (!fields.title) {
     return "Title is required.";
   }
@@ -88,15 +117,20 @@ function validateFields(fields: ReturnType<typeof readAnnouncementFields>): stri
   if (!ANNOUNCEMENT_PRIORITIES.includes(fields.priority as AnnouncementPriority)) {
     return "Please choose a valid priority.";
   }
-  if (fields.expiresAt) {
+  if (fields.publishedAt && !parsedDates.publishedAt) {
+    return "Published date is invalid.";
+  }
+  if (fields.expiresAt && !parsedDates.expiresAt) {
+    return "Expiry date is invalid.";
+  }
+  if (parsedDates.expiresAt) {
     // Compare against the explicit published date if one was entered;
     // otherwise fall back to "now" as a stand-in for the timestamp the
-    // announcement will actually get stamped with on publish.
-    const referenceDate = fields.publishedAt ? new Date(fields.publishedAt) : new Date();
-    const expiresDate = new Date(fields.expiresAt);
-    if (Number.isNaN(expiresDate.getTime())) {
-      return "Expiry date is invalid.";
-    }
+    // announcement will actually get stamped with on publish. Both sides
+    // are already-parsed UTC instants, so this compares real instants
+    // rather than raw datetime-local strings.
+    const referenceDate = parsedDates.publishedAt ? new Date(parsedDates.publishedAt) : new Date();
+    const expiresDate = new Date(parsedDates.expiresAt);
     if (expiresDate <= referenceDate) {
       return "Expiry must be after the published date.";
     }
@@ -116,17 +150,14 @@ export async function createAnnouncement(
   }
 
   const fields = readAnnouncementFields(formData);
-  const validationError = validateFields(fields);
+  const parsedDates = parseAnnouncementDates(fields);
+  const validationError = validateFields(fields, parsedDates);
   if (validationError) {
     return { status: "error", message: validationError };
   }
 
   const isPublishing = fields.status === "published";
-  const publishedAt = isPublishing
-    ? fields.publishedAt
-      ? new Date(fields.publishedAt).toISOString()
-      : new Date().toISOString()
-    : null;
+  const publishedAt = isPublishing ? (parsedDates.publishedAt ?? new Date().toISOString()) : null;
 
   const supabase = await createClient();
   const { error } = await supabase.from("announcements").insert({
@@ -138,7 +169,7 @@ export async function createAnnouncement(
     priority: fields.priority,
     is_pinned: fields.isPinned,
     published_at: publishedAt,
-    expires_at: fields.expiresAt ? new Date(fields.expiresAt).toISOString() : null,
+    expires_at: parsedDates.expiresAt,
     created_by: userId,
   });
 
@@ -165,7 +196,8 @@ export async function updateAnnouncement(
   }
 
   const fields = readAnnouncementFields(formData);
-  const validationError = validateFields(fields);
+  const parsedDates = parseAnnouncementDates(fields);
+  const validationError = validateFields(fields, parsedDates);
   if (validationError) {
     return { status: "error", message: validationError };
   }
@@ -181,7 +213,7 @@ export async function updateAnnouncement(
     status: fields.status,
     priority: fields.priority,
     is_pinned: fields.isPinned,
-    expires_at: fields.expiresAt ? new Date(fields.expiresAt).toISOString() : null,
+    expires_at: parsedDates.expiresAt,
     updated_at: new Date().toISOString(),
   };
 
@@ -190,8 +222,8 @@ export async function updateAnnouncement(
     // Otherwise: only stamp "now" the first time it goes live — leave an
     // already-published announcement's published_at untouched so it keeps
     // its original publish date.
-    if (fields.publishedAt) {
-      updatePayload.published_at = new Date(fields.publishedAt).toISOString();
+    if (parsedDates.publishedAt) {
+      updatePayload.published_at = parsedDates.publishedAt;
     } else if (!wasPublished) {
       updatePayload.published_at = new Date().toISOString();
     }
