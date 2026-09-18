@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getMalaysiaTodayIsoDate } from "@/lib/date";
 import type {
   BorrowRequestAdminView,
   BorrowRequestStatus,
@@ -27,14 +28,15 @@ const REQUEST_COLUMNS_ADMIN =
 // That check is applied once, here, to every row this module returns, so
 // badges, admin filters and dashboard counts all agree on the same effective
 // status without each caller re-deriving it.
+//
+// "Today" is the club's own calendar date (Asia/Kuala_Lumpur), via the
+// shared getMalaysiaTodayIsoDate helper — not UTC or the server's system
+// timezone, which would misclassify a borrowing as (not) overdue for part
+// of every day. See lib/date.ts for why.
 // ---------------------------------------------------------------------------
 
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function isPastReturnDate(requestedReturnDate: string): boolean {
-  return requestedReturnDate < todayIsoDate();
+  return requestedReturnDate < getMalaysiaTodayIsoDate();
 }
 
 function withEffectiveStatus<
@@ -261,11 +263,11 @@ export async function getAdminBorrowRequests(
   if (status === "overdue") {
     queryBuilder = queryBuilder
       .eq("status", "active")
-      .lt("requested_return_date", todayIsoDate());
+      .lt("requested_return_date", getMalaysiaTodayIsoDate());
   } else if (status === "active") {
     queryBuilder = queryBuilder
       .eq("status", "active")
-      .gte("requested_return_date", todayIsoDate());
+      .gte("requested_return_date", getMalaysiaTodayIsoDate());
   } else if (status !== "all") {
     queryBuilder = queryBuilder.eq("status", status);
   }

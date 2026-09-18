@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getMalaysiaTodayIsoDate } from "@/lib/date";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { submitBorrowRequestRpc } from "@/lib/supabase/borrow-requests";
 import { getSiteSettings } from "@/lib/supabase/settings";
@@ -61,6 +62,16 @@ export async function submitBorrowRequest(
   }
   if (!requestedBorrowDate || !requestedReturnDate) {
     return { status: "error", message: "Please choose both a borrow date and a return date." };
+  }
+
+  // Server-side floor on the borrow date, using the club's own calendar
+  // date (Asia/Kuala_Lumpur) rather than UTC or the server's system
+  // timezone — see getMalaysiaTodayIsoDate for why. The <input
+  // type="date"> min attribute is a UI convenience only; a direct post to
+  // this action must be rejected here too.
+  const todayIsoDate = getMalaysiaTodayIsoDate();
+  if (requestedBorrowDate < todayIsoDate) {
+    return { status: "error", message: "Borrow date can't be in the past." };
   }
   if (requestedReturnDate < requestedBorrowDate) {
     return { status: "error", message: "Return date can't be before the borrow date." };

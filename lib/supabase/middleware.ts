@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/instruments", "/admin"];
+const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/instruments", "/admin", "/my-requests", "/my-borrowings"];
 // /reset-password is intentionally NOT protected here — it needs its own
 // server-side session check (see app/reset-password/page.tsx) so a
 // missing/expired recovery link can redirect to a friendly

@@ -6,7 +6,7 @@ import Button from "@/components/ui/Button";
 import {
   CONDITION_LABELS,
   INSTRUMENT_CONDITIONS,
-  INSTRUMENT_STATUSES,
+  MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES,
   STATUS_LABELS,
   type InstrumentCondition,
 } from "@/types/instrument";
@@ -17,12 +17,6 @@ const INITIAL_STATE: BorrowRequestActionResult = { status: "idle", message: "" }
 const FIELD_CLASSES =
   "mt-1.5 w-full rounded-sm border border-[#E8E8E8] px-3 py-2 text-sm text-[#111111] focus:border-[#C8A928] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#F8F8F6]";
 const LABEL_CLASSES = "text-xs font-medium uppercase tracking-wide text-[#666666]";
-
-// Statuses that make sense as the outcome of a return — a returned
-// instrument shouldn't land back in "pending" or "borrowed".
-const RETURN_OUTCOME_STATUSES = INSTRUMENT_STATUSES.filter(
-  (status) => status !== "pending" && status !== "borrowed",
-);
 
 interface CompleteReturnFormProps {
   currentCondition: InstrumentCondition | null;
@@ -103,7 +97,7 @@ export default function CompleteReturnForm({ currentCondition, action }: Complet
             disabled={isSubmitting}
             className={FIELD_CLASSES}
           >
-            {RETURN_OUTCOME_STATUSES.map((value) => (
+            {MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES.map((value) => (
               <option key={value} value={value}>
                 {STATUS_LABELS[value]}
               </option>

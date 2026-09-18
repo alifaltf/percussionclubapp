@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/supabase/current-user";
-import { reportDamageRpc, submitReturnRpc } from "@/lib/supabase/borrow-requests";
+import {
+  getMyBorrowingById,
+  reportDamageRpc,
+  submitReturnRpc,
+} from "@/lib/supabase/borrow-requests";
 
 export interface BorrowingFormState {
   status: "idle" | "error" | "success";
@@ -19,11 +23,33 @@ export async function submitReturn(
     return { status: "error", message: "You must be signed in to do that." };
   }
 
+  // Defense-in-depth: confirm ownership (getMyBorrowingById scopes its
+  // query to member_id = user.id, so a non-null result is itself the
+  // ownership check) and that the borrowing is in a state a return can
+  // actually be submitted for. submit_return remains the final authority
+  // for concurrent changes — this only rejects an obviously invalid
+  // request earlier with a clearer message.
+  const request = await getMyBorrowingById(requestId);
+  if (!request) {
+    return { status: "error", message: "Borrowing not found." };
+  }
+  if (request.status !== "active" && request.status !== "overdue") {
+    return { status: "error", message: "A return can only be submitted for an active borrowing." };
+  }
+
   const returnPhotoPath = String(formData.get("returnPhotoPath") ?? "").trim();
   const returnNotes = String(formData.get("returnNotes") ?? "").trim();
 
   if (!returnPhotoPath) {
     return { status: "error", message: "Please upload a photo of the returned instrument." };
+  }
+
+  // uploadReturnPhoto (lib/supabase/storage.ts) always writes under
+  // `${requestId}/...` in the private return-photos bucket. Reject
+  // anything outside that namespace so a crafted request can't attach an
+  // unrelated object as this request's return photo.
+  if (!returnPhotoPath.startsWith(`${requestId}/`)) {
+    return { status: "error", message: "Invalid return photo." };
   }
 
   const result = await submitReturnRpc({
@@ -54,6 +80,16 @@ export async function reportDamage(
   const { user } = await getCurrentUser();
   if (!user) {
     return { status: "error", message: "You must be signed in to do that." };
+  }
+
+  // Defense-in-depth: same ownership + state checks as submitReturn above.
+  // report_damage remains the final authority for concurrent changes.
+  const request = await getMyBorrowingById(requestId);
+  if (!request) {
+    return { status: "error", message: "Borrowing not found." };
+  }
+  if (request.status !== "active" && request.status !== "overdue") {
+    return { status: "error", message: "Damage can only be reported for an active borrowing." };
   }
 
   const damageNotes = String(formData.get("damageNotes") ?? "").trim();

@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
+import { getMalaysiaTodayIsoDate } from "@/lib/date";
 import type { BorrowRequestFormState } from "@/app/instruments/[id]/actions";
 
 const INITIAL_STATE: BorrowRequestFormState = { status: "idle", message: null };
@@ -18,15 +19,11 @@ interface RequestToBorrowFormProps {
   ) => Promise<BorrowRequestFormState>;
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function RequestToBorrowForm({ action }: RequestToBorrowFormProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isSubmitting] = useActionState(action, INITIAL_STATE);
-  const [borrowDate, setBorrowDate] = useState(todayIso());
+  const [borrowDate, setBorrowDate] = useState(getMalaysiaTodayIsoDate());
 
   // So the instrument's status/availability reflects the new request if the
   // member navigates back to this page instead of following the link below.
@@ -70,7 +67,7 @@ export default function RequestToBorrowForm({ action }: RequestToBorrowFormProps
             id="requestedBorrowDate"
             name="requestedBorrowDate"
             type="date"
-            min={todayIso()}
+            min={getMalaysiaTodayIsoDate()}
             value={borrowDate}
             onChange={(event) => setBorrowDate(event.target.value)}
             disabled={isSubmitting}
@@ -86,7 +83,7 @@ export default function RequestToBorrowForm({ action }: RequestToBorrowFormProps
             id="requestedReturnDate"
             name="requestedReturnDate"
             type="date"
-            min={borrowDate || todayIso()}
+            min={borrowDate || getMalaysiaTodayIsoDate()}
             disabled={isSubmitting}
             required
             className={FIELD_CLASSES}

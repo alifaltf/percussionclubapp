@@ -4,6 +4,16 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { BORROW_REQUEST_STATUSES, BORROW_REQUEST_STATUS_LABELS } from "@/types/borrow-request";
+import type { BorrowRequestStatus } from "@/types/borrow-request";
+
+// "approved" is never a status any request can actually hold in this app —
+// approving a request moves it straight to "active" (see the state machine
+// in app/admin/requests/actions.ts). Filtered out here so the admin filter
+// dropdown doesn't offer a status that will never match anything, without
+// removing it from the underlying type (kept for DB enum compatibility).
+const ADMIN_FILTERABLE_STATUSES: BorrowRequestStatus[] = BORROW_REQUEST_STATUSES.filter(
+  (status) => status !== "approved",
+);
 
 const SELECT_CLASSES =
   "mt-1.5 w-full rounded-sm border border-[#E8E8E8] bg-white px-3 py-2 text-sm text-[#111111] focus:border-[#C8A928] focus:outline-none";
@@ -84,7 +94,7 @@ export default function RequestsToolbar() {
             className={SELECT_CLASSES}
           >
             <option value="all">All Statuses</option>
-            {BORROW_REQUEST_STATUSES.map((value) => (
+            {ADMIN_FILTERABLE_STATUSES.map((value) => (
               <option key={value} value={value}>
                 {BORROW_REQUEST_STATUS_LABELS[value]}
               </option>

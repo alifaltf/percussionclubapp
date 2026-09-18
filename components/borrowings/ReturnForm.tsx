@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { CameraIcon, InstrumentIcon } from "@/components/ui/icons";
@@ -89,7 +89,9 @@ export default function ReturnForm({ requestId, action }: ReturnFormProps) {
     }
     setIsUploading(false);
 
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   if (state.status === "success") {

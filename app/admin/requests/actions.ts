@@ -7,7 +7,7 @@ import {
   completeReturnRpc,
   rejectBorrowRequestRpc,
 } from "@/lib/supabase/borrow-requests";
-import { INSTRUMENT_CONDITIONS, INSTRUMENT_STATUSES } from "@/types/instrument";
+import { INSTRUMENT_CONDITIONS, MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES } from "@/types/instrument";
 import type { InstrumentCondition, InstrumentStatus } from "@/types/instrument";
 
 export interface BorrowRequestActionResult {
@@ -89,7 +89,7 @@ export async function completeReturnAction(
   if (!INSTRUMENT_CONDITIONS.includes(conditionAfter as InstrumentCondition)) {
     return { status: "error", message: "Please choose a valid condition." };
   }
-  if (!INSTRUMENT_STATUSES.includes(finalInstrumentStatus as InstrumentStatus)) {
+  if (!MANUALLY_ASSIGNABLE_INSTRUMENT_STATUSES.includes(finalInstrumentStatus as InstrumentStatus)) {
     return { status: "error", message: "Please choose a valid instrument status." };
   }
   if (damageReported && !damageNotes) {
