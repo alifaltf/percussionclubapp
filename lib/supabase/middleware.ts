@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/instruments", "/admin", "/my-requests", "/my-borrowings"];
+const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/instruments", "/admin", "/my-requests", "/my-borrowings", "/announcements"];
 // /reset-password is intentionally NOT protected here — it needs its own
 // server-side session check (see app/reset-password/page.tsx) so a
 // missing/expired recovery link can redirect to a friendly
@@ -11,17 +11,24 @@ const AUTH_ONLY_PREFIXES = ["/login", "/forgot-password"];
 
 // Paths that are never subject to maintenance mode or the public
 // gallery/events feature toggles, regardless of their state:
-//   - /login       so an admin can always sign in during maintenance
-//   - /maintenance the maintenance page itself — redirecting it would loop
-//   - /admin       so a signed-in admin can always reach the admin portal
-//                  (guests are still bounced to /login by the existing
-//                  PROTECTED_PREFIXES check below, same as always)
-//   - /auth        reserved for a future Supabase auth callback route (none
-//                  exists yet, but a callback must never be gated)
+//   - /login           so an admin can always sign in during maintenance
+//   - /maintenance     the maintenance page itself — redirecting it would loop
+//   - /admin           so a signed-in admin can always reach the admin portal
+//                      (guests are still bounced to /login by the existing
+//                      PROTECTED_PREFIXES check below, same as always)
+//   - /auth            the Supabase auth callback route — a callback must
+//                      never be gated
+//   - /reset-password  otherwise a member mid password-reset (forgot-password
+//                      -> email -> /auth/callback -> /reset-password) would
+//                      get bounced to /maintenance instead of being able to
+//                      finish setting their new password. This does NOT
+//                      exempt normal member pages — only the reset step
+//                      itself, which already has its own server-side
+//                      session gate (see app/reset-password/page.tsx).
 // Static assets (_next/*, favicon, images) are already excluded entirely by
 // this middleware's `config.matcher` in middleware.ts, so they never reach
 // this function at all.
-const GATING_EXEMPT_PREFIXES = ["/login", "/maintenance", "/admin", "/auth"];
+const GATING_EXEMPT_PREFIXES = ["/login", "/maintenance", "/admin", "/auth", "/reset-password"];
 
 interface ToggleSettings {
   maintenance_mode: boolean;
