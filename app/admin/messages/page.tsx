@@ -5,12 +5,19 @@ import { requireAdmin } from "@/lib/supabase/require-admin";
 import { getContactMessages } from "@/lib/supabase/contact";
 import type { ContactMessage } from "@/types/contact";
 
+// Explicit timeZone: this Server Component renders on the server, whose
+// own local timezone is not guaranteed to be Malaysia's (it's UTC in this
+// deployment) — without this, admins would see created_at shifted by the
+// server's offset from Malaysia (Asia/Kuala_Lumpur, UTC+8, no DST) rather
+// than the actual local time a message arrived. Storage stays UTC; only
+// this display formatting is timezone-aware.
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   month: "short",
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
+  timeZone: "Asia/Kuala_Lumpur",
 });
 
 export default async function AdminMessagesPage() {
