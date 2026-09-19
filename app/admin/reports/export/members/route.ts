@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { resolveDateRange } from "@/lib/supabase/reports";
+import {
+  getMalaysiaDateEndUtcIso,
+  getMalaysiaDateStartUtcIso,
+  getMalaysiaIsoDateFromTimestamp,
+  getMalaysiaTodayIsoDate,
+} from "@/lib/date";
 import { toCsv } from "@/lib/csv";
 import type { ReportDateRangeKey } from "@/types/report";
 
@@ -33,16 +39,26 @@ export async function GET(request: NextRequest) {
   }
 
   const borrowRows = borrowResult.data ?? [];
-  const rangeStart = range.start;
-  const rangeEnd = range.end ? `${range.end}T23:59:59.999` : null;
-  const today = new Date().toISOString().slice(0, 10);
+  // created_at is a timestamptz — bound it with the actual Malaysia
+  // start-of-day/end-of-day UTC instants (compared as real millisecond
+  // instants, not raw strings). "Has Overdue Borrowing" must agree with
+  // the working Borrow Requests module's own definition
+  // (status === "active" && requested_return_date < Malaysia today), so
+  // it uses the same Malaysia "today" as that module rather than the
+  // server's own UTC date.
+  const rangeStartMs = range.start ? Date.parse(getMalaysiaDateStartUtcIso(range.start) ?? "") : null;
+  const rangeEndMs = range.end ? Date.parse(getMalaysiaDateEndUtcIso(range.end) ?? "") : null;
+  const today = getMalaysiaTodayIsoDate();
 
   const totalBorrowsInRange = new Map<string, number>();
   const activeMembers = new Set<string>();
   const overdueMembers = new Set<string>();
 
   for (const row of borrowRows) {
-    const inRange = (!rangeStart || row.created_at >= rangeStart) && (!rangeEnd || row.created_at <= rangeEnd);
+    const createdAtMs = Date.parse(row.created_at);
+    const inRange =
+      (rangeStartMs === null || (!Number.isNaN(createdAtMs) && createdAtMs >= rangeStartMs)) &&
+      (rangeEndMs === null || (!Number.isNaN(createdAtMs) && createdAtMs <= rangeEndMs));
     if (inRange) {
       totalBorrowsInRange.set(row.member_id, (totalBorrowsInRange.get(row.member_id) ?? 0) + 1);
     }
@@ -62,7 +78,7 @@ export async function GET(request: NextRequest) {
     totalBorrowsInRange.get(member.id) ?? 0,
     activeMembers.has(member.id) ? "Yes" : "No",
     overdueMembers.has(member.id) ? "Yes" : "No",
-    member.created_at.slice(0, 10),
+    getMalaysiaIsoDateFromTimestamp(member.created_at),
   ]);
 
   const csv = toCsv(

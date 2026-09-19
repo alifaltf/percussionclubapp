@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { resolveDateRange } from "@/lib/supabase/reports";
+import { getMalaysiaDateEndUtcIso, getMalaysiaDateStartUtcIso } from "@/lib/date";
 import { toCsv } from "@/lib/csv";
 import { STATUS_LABELS, CONDITION_LABELS } from "@/types/instrument";
 import type { InstrumentCondition, InstrumentStatus } from "@/types/instrument";
@@ -40,8 +41,15 @@ export async function GET(request: NextRequest) {
   }
 
   const borrowRows = borrowResult.data ?? [];
-  const rangeStart = range.start;
-  const rangeEnd = range.end ? `${range.end}T23:59:59.999` : null;
+  // created_at is a timestamptz — bound it with the actual Malaysia
+  // start-of-day/end-of-day UTC instants (compared as real millisecond
+  // instants, not raw strings, since Supabase's returned timestamp format
+  // isn't guaranteed to sort identically to these constructed ISO
+  // strings). A bare YYYY-MM-DD string or a timezone-naive
+  // "T23:59:59.999" would otherwise be read at midnight in the server's
+  // own timezone (UTC), not Malaysia's — 8 hours off.
+  const rangeStartMs = range.start ? Date.parse(getMalaysiaDateStartUtcIso(range.start) ?? "") : null;
+  const rangeEndMs = range.end ? Date.parse(getMalaysiaDateEndUtcIso(range.end) ?? "") : null;
 
   const timesBorrowedInRange = new Map<string, number>();
   const lastBorrowedLifetime = new Map<string, string>();
@@ -52,7 +60,10 @@ export async function GET(request: NextRequest) {
       lastBorrowedLifetime.set(row.instrument_id, row.requested_borrow_date);
     }
 
-    const inRange = (!rangeStart || row.created_at >= rangeStart) && (!rangeEnd || row.created_at <= rangeEnd);
+    const createdAtMs = Date.parse(row.created_at);
+    const inRange =
+      (rangeStartMs === null || (!Number.isNaN(createdAtMs) && createdAtMs >= rangeStartMs)) &&
+      (rangeEndMs === null || (!Number.isNaN(createdAtMs) && createdAtMs <= rangeEndMs));
     if (inRange) {
       timesBorrowedInRange.set(row.instrument_id, (timesBorrowedInRange.get(row.instrument_id) ?? 0) + 1);
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { resolveDateRange } from "@/lib/supabase/reports";
+import { getMalaysiaDateEndUtcIso, getMalaysiaDateStartUtcIso } from "@/lib/date";
 import { toCsv } from "@/lib/csv";
 import type { ReportDateRangeKey } from "@/types/report";
 
@@ -42,8 +43,19 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
   let query = supabase.from("borrow_requests").select(CSV_COLUMNS).order("created_at", { ascending: false });
-  if (range.start) query = query.gte("created_at", range.start);
-  if (range.end) query = query.lte("created_at", `${range.end}T23:59:59.999`);
+  // created_at is a timestamptz — bound it with the actual Malaysia
+  // start-of-day/end-of-day UTC instants, not a bare YYYY-MM-DD string or
+  // a timezone-naive "T23:59:59.999", either of which Postgres would
+  // interpret at midnight in the session's own timezone (UTC), not
+  // Malaysia's, silently shifting the boundary by 8 hours.
+  if (range.start) {
+    const startBound = getMalaysiaDateStartUtcIso(range.start);
+    if (startBound) query = query.gte("created_at", startBound);
+  }
+  if (range.end) {
+    const endBound = getMalaysiaDateEndUtcIso(range.end);
+    if (endBound) query = query.lte("created_at", endBound);
+  }
 
   const { data, error } = await query;
 

@@ -20,13 +20,13 @@ const MALAYSIA_TIME_ZONE = "Asia/Kuala_Lumpur";
  * Actions/Components) and client components — it only depends on the
  * standard `Intl` API, not on any server-only context.
  */
-export function getMalaysiaTodayIsoDate(): string {
+function formatMalaysiaIsoDate(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: MALAYSIA_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date());
+  }).formatToParts(date);
 
   const lookup = (type: string) => parts.find((part) => part.type === type)?.value;
   const year = lookup("year");
@@ -42,6 +42,10 @@ export function getMalaysiaTodayIsoDate(): string {
   }
 
   return `${year}-${month}-${day}`;
+}
+
+export function getMalaysiaTodayIsoDate(): string {
+  return formatMalaysiaIsoDate(new Date());
 }
 
 const MALAYSIA_UTC_OFFSET_MINUTES = 8 * 60;
@@ -111,4 +115,126 @@ export function parseMalaysiaDateTimeLocal(value: string): string | null {
 
   const utcMillis = wallClockMillis - MALAYSIA_UTC_OFFSET_MINUTES * 60 * 1000;
   return new Date(utcMillis).toISOString();
+}
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Parses a YYYY-MM-DD string into numeric components, but only if it's
+ * both well-formed AND a real calendar date — round-trips the constructed
+ * UTC millis back through `getUTC*()` accessors the same way
+ * parseMalaysiaDateTimeLocal does above, since `Date.UTC()` itself
+ * silently normalizes overflow (`Date.UTC(2026, 1, 30)` becomes March 2,
+ * not an error) rather than rejecting it.
+ */
+function parseIsoDateStrict(value: string): { year: number; month: number; day: number } | null {
+  const match = ISO_DATE_PATTERN.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const [, yearStr, monthStr, dayStr] = match;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+
+  const wallClockMillis = Date.UTC(year, month - 1, day);
+  const roundTrip = new Date(wallClockMillis);
+  const isRealDate =
+    roundTrip.getUTCFullYear() === year &&
+    roundTrip.getUTCMonth() === month - 1 &&
+    roundTrip.getUTCDate() === day;
+
+  return isRealDate ? { year, month, day } : null;
+}
+
+/**
+ * True if `value` is a well-formed YYYY-MM-DD string representing a real
+ * calendar date (rejects e.g. "2026-02-30"). Shared validator for any
+ * date-only Malaysia business-date input — e.g. the Reports custom date
+ * range — so "is this a real date" is checked the same way everywhere
+ * rather than re-implemented per caller.
+ */
+export function isValidIsoDate(value: string): boolean {
+  return parseIsoDateStrict(value) !== null;
+}
+
+/**
+ * The UTC instant for 00:00:00.000 at the START of `date` — a YYYY-MM-DD
+ * calendar date in Malaysia (Asia/Kuala_Lumpur, UTC+8, no DST). Returns
+ * null for a malformed or impossible date rather than silently producing
+ * a wrong instant.
+ *
+ * Use this (paired with getMalaysiaDateEndUtcIso for the end) whenever a
+ * Malaysia calendar-date range needs to bound a `timestamptz` column —
+ * never compare a timestamptz column directly against a bare YYYY-MM-DD
+ * string. Postgres would cast that string to midnight in the DATABASE
+ * SESSION's timezone (UTC in this deployment), not midnight in Malaysia,
+ * which is 8 hours later — silently shifting the boundary by 8 hours.
+ *
+ * Example: getMalaysiaDateStartUtcIso("2026-09-20") -> "2026-09-19T16:00:00.000Z"
+ * (00:00 MYT on the 20th is 16:00 UTC on the 19th).
+ */
+export function getMalaysiaDateStartUtcIso(date: string): string | null {
+  const parsed = parseIsoDateStrict(date);
+  if (!parsed) {
+    return null;
+  }
+  const wallClockMillis = Date.UTC(parsed.year, parsed.month - 1, parsed.day, 0, 0, 0, 0);
+  return new Date(wallClockMillis - MALAYSIA_UTC_OFFSET_MINUTES * 60 * 1000).toISOString();
+}
+
+/**
+ * The UTC instant for 23:59:59.999 at the END of `date` — a YYYY-MM-DD
+ * calendar date in Malaysia. The end-of-range counterpart to
+ * getMalaysiaDateStartUtcIso above; see its doc comment for why a bare
+ * YYYY-MM-DD string must never be compared directly against a timestamptz
+ * column.
+ *
+ * Example: getMalaysiaDateEndUtcIso("2026-09-20") -> "2026-09-20T15:59:59.999Z"
+ * (23:59:59.999 MYT on the 20th is 15:59:59.999 UTC the same UTC day).
+ */
+export function getMalaysiaDateEndUtcIso(date: string): string | null {
+  const parsed = parseIsoDateStrict(date);
+  if (!parsed) {
+    return null;
+  }
+  const wallClockMillis = Date.UTC(parsed.year, parsed.month - 1, parsed.day, 23, 59, 59, 999);
+  return new Date(wallClockMillis - MALAYSIA_UTC_OFFSET_MINUTES * 60 * 1000).toISOString();
+}
+
+/**
+ * Shifts a YYYY-MM-DD calendar date by `days` days (negative shifts
+ * backward), returning the result as YYYY-MM-DD. Pure calendar arithmetic
+ * on the parsed year/month/day via `Date.UTC()` — this never touches the
+ * server's own local timezone, so "N days before this Malaysia date" comes
+ * out the same regardless of what timezone the code happens to run in.
+ * Throws on a malformed/impossible input date rather than silently
+ * producing a shifted-from-garbage result.
+ */
+export function shiftIsoDate(date: string, days: number): string {
+  const parsed = parseIsoDateStrict(date);
+  if (!parsed) {
+    throw new Error(`shiftIsoDate: "${date}" is not a valid YYYY-MM-DD date.`);
+  }
+  const shifted = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day + days));
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * The Malaysia calendar date (YYYY-MM-DD) that a UTC timestamp falls on —
+ * the read-side counterpart to getMalaysiaDateStartUtcIso/EndUtcIso above.
+ * Use this instead of `.slice(0, 10)` on a timestamptz value (e.g.
+ * profiles.created_at) whenever the result is meant to read as a Malaysia
+ * business date — `.slice(0, 10)` just takes the UTC calendar date, which
+ * is wrong for roughly 8 hours a day (00:00-07:59 Malaysia time, where the
+ * UTC date is still "yesterday").
+ *
+ * Example: getMalaysiaIsoDateFromTimestamp("2026-09-19T20:00:00.000Z")
+ * -> "2026-09-20" (4:00 AM MYT the next calendar day).
+ */
+export function getMalaysiaIsoDateFromTimestamp(isoTimestamp: string): string {
+  return formatMalaysiaIsoDate(new Date(isoTimestamp));
 }

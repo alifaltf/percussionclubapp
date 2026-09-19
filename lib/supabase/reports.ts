@@ -1,4 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  getMalaysiaDateEndUtcIso,
+  getMalaysiaDateStartUtcIso,
+  getMalaysiaTodayIsoDate,
+  isValidIsoDate,
+  shiftIsoDate,
+} from "@/lib/date";
 import { INSTRUMENT_CONDITIONS, INSTRUMENT_STATUSES, CONDITION_LABELS, STATUS_LABELS } from "@/types/instrument";
 import type { InstrumentCondition, InstrumentStatus } from "@/types/instrument";
 import type {
@@ -21,15 +28,10 @@ import type {
 // ---------------------------------------------------------------------------
 // Date range resolution — shared by the report page and the CSV export
 // routes so both always agree on the same window for a given query string.
+// Anchored on Malaysia's calendar date via lib/date.ts's shared helpers,
+// never the server's own local timezone — see lib/date.ts for why that
+// distinction matters for a club whose business day runs ~8 hours off UTC.
 // ---------------------------------------------------------------------------
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function isValidIsoDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
-}
 
 export function resolveDateRange(
   key: ReportDateRangeKey,
@@ -51,16 +53,34 @@ export function resolveDateRange(
     return { start, end };
   }
 
+  // A preset of N days should span exactly N Malaysia calendar dates
+  // INCLUDING today (e.g. "Last 7 Days" = today plus the 6 previous days,
+  // not 7 previous days plus today = 8). Shift by -(N - 1), not -N, via
+  // shiftIsoDate's pure calendar arithmetic — never the server's own
+  // local Date methods.
   const days = Number(key);
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - days);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  const end = getMalaysiaTodayIsoDate();
+  const start = shiftIsoDate(end, -(days - 1));
+  return { start, end };
 }
 
-/** End-of-day bound for timestamptz columns, so the end date is inclusive. */
-function endOfDay(date: string): string {
-  return `${date}T23:59:59.999`;
+/**
+ * UTC instant bounds for filtering a `created_at`-style timestamptz column
+ * against a Malaysia calendar-date range — the one shared implementation
+ * of "what does this Malaysia date range mean in UTC", used by every
+ * timestamptz-filtered query below and by every CSV export route. A
+ * date-only column (e.g. `event_date`, `actual_borrow_date`) should keep
+ * comparing directly against range.start/range.end instead of going
+ * through this — see the call sites below.
+ */
+function timestampRangeBoundsUtcIso(range: ReportDateRange): {
+  start: string | null;
+  end: string | null;
+} {
+  return {
+    start: range.start ? getMalaysiaDateStartUtcIso(range.start) : null,
+    end: range.end ? getMalaysiaDateEndUtcIso(range.end) : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,8 +187,11 @@ function averageDurationDays(
 
 // ---------------------------------------------------------------------------
 // Summary cards — current-state snapshot, not affected by the date range.
-// Reuses the existing per-module stats functions where possible so every
-// number on this page matches the equivalent admin dashboard card exactly.
+// Queries these tables directly rather than calling the per-module stats
+// functions (getInstrumentStats/getBorrowRequestStats/getEventStats) —
+// keep the metric definitions below (status groupings, the Malaysia
+// "today" used for overdue/upcoming) in sync with those functions by hand
+// whenever either side changes.
 // ---------------------------------------------------------------------------
 
 export async function getReportSummary(): Promise<ReportSummary> {
@@ -187,7 +210,7 @@ export async function getReportSummary(): Promise<ReportSummary> {
   if (announcementsResult.error) throw new Error("Could not load announcement statistics.");
 
   const instrumentRows = instrumentsResult.data ?? [];
-  const today = todayIsoDate();
+  const today = getMalaysiaTodayIsoDate();
 
   const borrowRows = borrowResult.data ?? [];
   let active = 0;
@@ -246,16 +269,25 @@ export async function getBorrowingAnalytics(range: ReportDateRange): Promise<Bor
     .not("actual_borrow_date", "is", null)
     .not("actual_return_date", "is", null);
 
+  const { start: createdAtStart, end: createdAtEnd } = timestampRangeBoundsUtcIso(range);
+
+  if (createdAtStart) {
+    statusQuery = statusQuery.gte("created_at", createdAtStart);
+    instrumentQuery = instrumentQuery.gte("created_at", createdAtStart);
+    memberQuery = memberQuery.gte("created_at", createdAtStart);
+  }
+  if (createdAtEnd) {
+    statusQuery = statusQuery.lte("created_at", createdAtEnd);
+    instrumentQuery = instrumentQuery.lte("created_at", createdAtEnd);
+    memberQuery = memberQuery.lte("created_at", createdAtEnd);
+  }
+  // actual_borrow_date is a date-only column (no time-of-day component),
+  // so it compares directly against the Malaysia calendar-date strings —
+  // no UTC-instant conversion needed here, unlike created_at above.
   if (range.start) {
-    statusQuery = statusQuery.gte("created_at", range.start);
-    instrumentQuery = instrumentQuery.gte("created_at", range.start);
-    memberQuery = memberQuery.gte("created_at", range.start);
     durationQuery = durationQuery.gte("actual_borrow_date", range.start);
   }
   if (range.end) {
-    statusQuery = statusQuery.lte("created_at", endOfDay(range.end));
-    instrumentQuery = instrumentQuery.lte("created_at", endOfDay(range.end));
-    memberQuery = memberQuery.lte("created_at", endOfDay(range.end));
     durationQuery = durationQuery.lte("actual_borrow_date", range.end);
   }
 
@@ -402,7 +434,7 @@ export async function getMemberAnalytics(): Promise<MemberAnalytics> {
     member: Relation<{ id: string; full_name: string | null }>;
   }[];
   const statusRows = statusResult.data ?? [];
-  const today = todayIsoDate();
+  const today = getMalaysiaTodayIsoDate();
 
   const activeMemberIds = new Set<string>();
   const overdueMemberIds = new Set<string>();
@@ -450,7 +482,7 @@ export async function getEventAnalytics(range: ReportDateRange): Promise<EventAn
   if (rangedResult.error) throw new Error("Could not load event analytics.");
 
   const rows = allResult.data ?? [];
-  const today = todayIsoDate();
+  const today = getMalaysiaTodayIsoDate();
 
   return {
     upcoming: rows.filter((row) => row.status === "published" && row.event_date >= today).length,
