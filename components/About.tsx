@@ -67,7 +67,7 @@ export default async function About() {
         >
           <div className="relative aspect-[4/5] w-full overflow-hidden border border-[#E8E8E8] bg-[#F8F8F6]">
             <Image
-              src="/images/about/about-club.jpg"
+              src={settings.about_image_url || "/images/about/about-club.jpg"}
               alt="IIUM Percussion Club members together"
               fill
               sizes="(min-width: 1024px) 40vw, (min-width: 640px) 28rem, 100vw"

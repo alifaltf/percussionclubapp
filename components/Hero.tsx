@@ -3,7 +3,10 @@ import Carousel from "@/components/ui/Carousel";
 import { getSiteSettings } from "@/lib/supabase/settings";
 import { DEFAULT_SITE_SETTINGS } from "@/types/settings";
 
-const HERO_IMAGES = [
+// Fallback slides — used per-slot whenever the matching hero_image_N_url
+// settings field is null, so an admin can replace some slides via Settings
+// while others keep showing the original photos.
+const HERO_IMAGE_FALLBACKS = [
   {
     src: "/images/hero/hero-1.jpg",
     alt: "IIUM Percussion Club performing on stage",
@@ -27,13 +30,24 @@ const AUTOPLAY_INTERVAL_MS = 5000;
 export default async function Hero() {
   const settings = await getSiteSettings().catch(() => DEFAULT_SITE_SETTINGS);
 
+  const heroImageUrls = [
+    settings.hero_image_1_url,
+    settings.hero_image_2_url,
+    settings.hero_image_3_url,
+    settings.hero_image_4_url,
+  ];
+  const heroImages = HERO_IMAGE_FALLBACKS.map((fallback, index) => ({
+    src: heroImageUrls[index] || fallback.src,
+    alt: fallback.alt,
+  }));
+
   return (
     <section
       id="home"
       className="relative h-[75vh] w-full sm:h-[85vh] lg:h-[92vh]"
     >
       <Carousel
-        images={HERO_IMAGES}
+        images={heroImages}
         intervalMs={AUTOPLAY_INTERVAL_MS}
         className="h-full w-full"
       >

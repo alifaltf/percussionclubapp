@@ -139,14 +139,15 @@ export async function uploadEventBanner(
 }
 
 /**
- * Uploads a club logo or favicon into `{kind}/{generated-file-name}` in the
- * site-assets bucket. Same rationale as uploadInstrumentImage (real
- * progress, bypasses the Server Action body limit). Restricted to
- * JPG/PNG/WebP by the shared extension whitelist above — SVG is
- * deliberately not accepted, matching the bucket's own allowed_mime_types.
+ * Uploads a club logo, favicon, homepage hero slide, or About Club image
+ * into `{kind}/{generated-file-name}` in the site-assets bucket. Same
+ * rationale as uploadInstrumentImage (real progress, bypasses the Server
+ * Action body limit). Restricted to JPG/PNG/WebP by the shared extension
+ * whitelist above — SVG is deliberately not accepted, matching the
+ * bucket's own allowed_mime_types.
  */
 export async function uploadSiteAsset(
-  kind: "logo" | "favicon",
+  kind: "logo" | "favicon" | "hero-1" | "hero-2" | "hero-3" | "hero-4" | "about",
   file: File,
   onProgress: (percent: number) => void,
 ): Promise<UploadImageResult> {

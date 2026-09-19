@@ -18,6 +18,6 @@ export const IMAGE_UPLOAD_LIMITS = {
   event: 20 * 1024 * 1024,
   /** `gallery-images` bucket — album covers and individual photos alike. */
   gallery: 20 * 1024 * 1024,
-  /** `site-assets` bucket — club logo and favicon. */
-  siteAsset: 5 * 1024 * 1024,
+  /** `site-assets` bucket — club logo, favicon, homepage Hero slides and the About Club image. */
+  siteAsset: 20 * 1024 * 1024,
 } as const;

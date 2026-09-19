@@ -7,7 +7,7 @@ import type { SiteSettings } from "@/types/settings";
 export const SITE_SETTINGS_CACHE_TAG = "site-settings";
 
 const SETTINGS_COLUMNS =
-  "id, club_name, short_name, tagline, description, logo_url, favicon_url, email, phone, whatsapp, instagram, facebook, youtube, location, rehearsal_schedule, hero_heading, hero_subheading, about_heading, about_text, join_us_url, contact_cta_text, primary_color, accent_color, background_color, text_color, allow_public_gallery, allow_public_events, allow_member_borrowing, maintenance_mode, created_at, updated_at";
+  "id, club_name, short_name, tagline, description, logo_url, favicon_url, email, phone, whatsapp, instagram, facebook, youtube, location, rehearsal_schedule, hero_heading, hero_subheading, about_heading, about_text, join_us_url, contact_cta_text, hero_image_1_url, hero_image_2_url, hero_image_3_url, hero_image_4_url, about_image_url, primary_color, accent_color, background_color, text_color, allow_public_gallery, allow_public_events, allow_member_borrowing, maintenance_mode, created_at, updated_at";
 
 /**
  * A plain (non-SSR, no cookies) Supabase client for the one read every
@@ -80,4 +80,48 @@ export async function updateSiteSettingsRow(
   }
 
   return { ok: true };
+}
+
+const SITE_ASSET_URL_COLUMNS =
+  "logo_url, favicon_url, hero_image_1_url, hero_image_2_url, hero_image_3_url, hero_image_4_url, about_image_url";
+
+export type SiteAssetUrls = Pick<
+  SiteSettings,
+  | "logo_url"
+  | "favicon_url"
+  | "hero_image_1_url"
+  | "hero_image_2_url"
+  | "hero_image_3_url"
+  | "hero_image_4_url"
+  | "about_image_url"
+>;
+
+/**
+ * Fresh (non-cached) read of just the site-assets image URL columns.
+ * Used by the settings Server Actions immediately before a logo/favicon/
+ * Hero/About image replacement, so old-file cleanup deletes exactly the
+ * Storage object the database is about to stop pointing at.
+ *
+ * This deliberately does NOT go through the unstable_cache-wrapped
+ * getSiteSettings() (which can lag behind the true row for the current
+ * cache lifetime) and it deliberately does NOT accept a client-supplied
+ * "previous URL" — a tampered request could otherwise name an arbitrary
+ * site-assets object for deletion. The only trustworthy "previous" value
+ * is whatever the database says right now, read with the same
+ * cookie-authenticated client used for the write below.
+ */
+export async function getCurrentSiteAssetUrls(): Promise<SiteAssetUrls | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select(SITE_ASSET_URL_COLUMNS)
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as SiteAssetUrls;
 }

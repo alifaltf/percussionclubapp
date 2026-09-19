@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import FormField from "@/components/ui/FormField";
 import ImageUploadField from "@/components/ui/ImageUploadField";
@@ -40,6 +40,11 @@ export default function GeneralSettingsForm({ settings }: GeneralSettingsFormPro
     setFaviconError(null);
 
     const formData = new FormData(event.currentTarget);
+    // Note: unlike an earlier version of this form, no "current image URL"
+    // is sent here. Old-file cleanup now reads the previous URL itself,
+    // server-side, from the database (see getCurrentSiteAssetUrls in
+    // lib/supabase/settings.ts) rather than trusting a client-supplied
+    // value for a destructive Storage delete.
 
     if (logoFile || faviconFile) {
       setIsUploading(true);
@@ -66,7 +71,14 @@ export default function GeneralSettingsForm({ settings }: GeneralSettingsFormPro
       setIsUploading(false);
     }
 
-    formAction(formData);
+    // formAction is useActionState's dispatch — safe to call only as a
+    // form action/formAction prop (which React wraps in a transition
+    // automatically) or manually inside startTransition. Calling it bare
+    // after the async upload above throws "An async function with
+    // useActionState was called outside of a transition".
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   function handleReset() {

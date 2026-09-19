@@ -26,6 +26,14 @@ export interface SiteSettings {
   about_text: string;
   join_us_url: string;
   contact_cta_text: string;
+  // Homepage CMS images — each nullable; the public Hero/About components
+  // fall back to the original hardcoded /public images whenever null. See
+  // the Settings CMS audit/implementation for the full rationale.
+  hero_image_1_url: string | null;
+  hero_image_2_url: string | null;
+  hero_image_3_url: string | null;
+  hero_image_4_url: string | null;
+  about_image_url: string | null;
 
   // Branding
   primary_color: string;
@@ -44,9 +52,11 @@ export interface SiteSettings {
 }
 
 /**
- * Matches the database column defaults exactly (see the Module 8 migration).
- * Used whenever the settings query fails or the row is somehow missing, so
- * the public site degrades to these known-good values instead of breaking.
+ * Matches the database column defaults exactly (see the Module 8 migration
+ * and the later Settings CMS image columns added directly against the live
+ * database). Used whenever the settings query fails or the row is somehow
+ * missing, so the public site degrades to these known-good values instead
+ * of breaking.
  */
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   id: 1,
@@ -74,6 +84,11 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "IIUM Percussion Club brings students together through rhythm, creativity and performance. We create a space where members can grow musically, build confidence and form meaningful connections through percussion.",
   join_us_url: "/contact",
   contact_cta_text: "Join Us",
+  hero_image_1_url: null,
+  hero_image_2_url: null,
+  hero_image_3_url: null,
+  hero_image_4_url: null,
+  about_image_url: null,
 
   primary_color: "#C8A928",
   accent_color: "#9E8217",
