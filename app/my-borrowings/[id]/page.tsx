@@ -22,6 +22,18 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 
+// Separate from DATE_FORMATTER above: verified_at is a timestamptz column,
+// unlike actual_borrow_date/requested_return_date/actual_return_date
+// (plain DATE columns, safe to format without an explicit timeZone).
+// Explicitly Malaysia time so "Verified by an admin on ..." doesn't show
+// the wrong calendar date for part of the day.
+const TIMESTAMP_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Kuala_Lumpur",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
 export default async function MyBorrowingDetailPage({ params }: MyBorrowingDetailPageProps) {
   const { user } = await getCurrentUser();
   if (!user) {
@@ -198,7 +210,7 @@ export default async function MyBorrowingDetailPage({ params }: MyBorrowingDetai
 
             {borrowing.status === "completed" && borrowing.verified_at && (
               <p className="mt-6 border-t border-[#E8E8E8] pt-6 text-sm text-[#666666]">
-                Verified by an admin on {DATE_FORMATTER.format(new Date(borrowing.verified_at))}.
+                Verified by an admin on {TIMESTAMP_DATE_FORMATTER.format(new Date(borrowing.verified_at))}.
               </p>
             )}
 

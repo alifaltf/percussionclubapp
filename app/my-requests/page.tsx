@@ -17,6 +17,18 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 
+// Separate from DATE_FORMATTER above: "Submitted" (created_at) is a
+// timestamptz column, unlike requested_borrow_date/requested_return_date
+// (plain DATE columns, safe to format without an explicit timeZone). This
+// formatter is explicitly Malaysia time so a request submitted late at
+// night UTC doesn't display as having been submitted a day early.
+const TIMESTAMP_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Kuala_Lumpur",
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+});
+
 export default async function MyRequestsPage() {
   const { user } = await getCurrentUser();
   if (!user) {
@@ -120,7 +132,7 @@ export default async function MyRequestsPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-[#666666]">
-                          {DATE_FORMATTER.format(new Date(request.created_at))}
+                          {TIMESTAMP_DATE_FORMATTER.format(new Date(request.created_at))}
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end">

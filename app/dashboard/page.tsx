@@ -32,7 +32,12 @@ export default async function DashboardPage() {
 
   const isAdmin = profile?.role === "admin";
   const displayName = profile?.full_name || user.email || "Member";
+  // Explicitly Malaysia time (Asia/Kuala_Lumpur) — without a timeZone this
+  // is display-only but still wrong for part of every day, showing
+  // whatever calendar date the server/Vercel runtime's own timezone is on
+  // rather than the club's.
   const today = new Date().toLocaleDateString("en-US", {
+    timeZone: "Asia/Kuala_Lumpur",
     weekday: "long",
     year: "numeric",
     month: "long",
