@@ -27,9 +27,13 @@ const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
  */
 export async function generateMetadata(): Promise<Metadata> {
   let clubName = DEFAULT_SITE_SETTINGS.club_name;
+  let faviconUrl = DEFAULT_SITE_SETTINGS.favicon_url;
+
   try {
     const settings = await getSiteSettings();
+
     clubName = settings.club_name || clubName;
+    faviconUrl = settings.favicon_url || faviconUrl;
   } catch {
     // Keep the fallback — never let a metadata failure break page rendering.
   }
@@ -37,6 +41,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: clubName,
     description: `Official website of the ${clubName}.`,
+    icons: faviconUrl
+      ? {
+          icon: faviconUrl,
+          shortcut: faviconUrl,
+        }
+      : undefined,
   };
 }
 
